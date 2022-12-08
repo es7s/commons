@@ -1,4 +1,5 @@
 #vim: fileencoding=utf-8
+import re
 
 WWO_CODE = {
     "113": "Sunny",
@@ -51,27 +52,22 @@ WWO_CODE = {
     "395": "HeavySnowShowers",
 }
 
-WEATHER_SYMBOL = {
-    "Unknown":             "✨",
-    "Cloudy":              "☁️",
-    "Fog":                 "🌫",
-    "HeavyRain":           "🌧",
-    "HeavyShowers":        "🌧",
-    "HeavySnow":           "❄️",
-    "HeavySnowShowers":    "❄️",
-    "LightRain":           "🌦",
-    "LightShowers":        "🌦",
-    "LightSleet":          "🌧",
-    "LightSleetShowers":   "🌧",
-    "LightSnow":           "🌨",
-    "LightSnowShowers":    "🌨",
-    "PartlyCloudy":        "⛅️",
-    "Sunny":               "☀️",
-    "ThunderyHeavyRain":   "🌩",
-    "ThunderyShowers":     "⛈",
-    "ThunderySnowShowers": "⛈",
-    "VeryCloudy": "☁️",
+WEATHER_SYMBOL = {                                               
+"✨":	("✨️",  "\x1b[38;5;248m",   "",	"", 	"  ".join(""),  		"\x1b[m", ("Unknown")),
+"☀":	("☀️",  "\x1b[38;5;248m滛", 	"滛",	"", 	"  ".join("望")+" ",  "\x1b[m", ("Sunny")),
+"☁":	("☁️",  "\x1b[38;5;248m摒", 	"摒", 	"", 	"  ".join(""), 		"\x1b[m", ("Cloudy", "VeryCloudy")),
+"⛅":	("⛅️", "\x1b[38;5;248m杖", 	"杖", 	"", 	"  ".join(""), 		"\x1b[m", ("PartlyCloudy")),
+"🌫":	("🌫️", "\x1b[38;5;248m敖",  "敖",  	"", 	"  ".join(""), 		"\x1b[m", ("Fog")),
+"🌦":	("🌦️", "\x1b[38;5;27m", 	"殺", 	"", 	"  ".join(""), 		"\x1b[m", ("LightRain", "LightShowers")),
+"🌧":	("🌧️", "\x1b[38;5;27m", 	"殺", 	"", 	"  ".join(""), 		"\x1b[m", ("HeavyRain", "HeavyShowers", "LightSleet", "LightSleetShowers")),
+"⛈":	("⛈️", "\x1b[38;5;229m",	"ﭼ", 	"", 	"  ".join(""), 		"\x1b[m", ("ThunderyShowers", "ThunderySnowShowers")),
+"🌩":	("🌩️", "\x1b[38;5;229m", 	"朗",	"",	"  ".join(""), 		"\x1b[m", ("ThunderyHeavyRain")),
+"🌨":	("🌨️", "\x1b[38;5;153mﰕ",	"流", 	"", 	"  ".join(""),  		"\x1b[m", ("LightSnow", "LightSnowShowers")),
+"❄":	("❄️",  "\x1b[38;5;153m",	"",  	"", 	"  ".join(""),		"\x1b[m", ("HeavySnow", "HeavySnowShowers")),
+
 }
+from pytermor import utilstr
+[print(re.sub(r'', r'', (k+'\t->\t'+'\t'.join(utilstr.ljust_sgr(str(s or '.'), 4) for s in v)).rstrip())) for k,v in WEATHER_SYMBOL.items()]
 
 WEATHER_SYMBOL_WIDTH_VTE = {
     "✨": 2,
@@ -148,7 +144,7 @@ WEATHER_SYMBOL_WI_NIGHT = {
 }
 
 WEATHER_SYMBOL_PLAIN = {
-    "Unknown":             "?",
+    "Unknown":      	         "?",
     "Cloudy":              "mm",
     "Fog":                 "=",
     "HeavyRain":           "///",
