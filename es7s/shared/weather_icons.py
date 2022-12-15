@@ -1,5 +1,6 @@
-#vim: fileencoding=utf-8
-import re
+import datetime
+from dataclasses import dataclass
+import pytermor as pt
 
 WWO_CODE = {
     "113": "Sunny",
@@ -52,265 +53,88 @@ WWO_CODE = {
     "395": "HeavySnowShowers",
 }
 
-WEATHER_SYMBOL = {                                               
-"✨":	("✨️",  "\x1b[38;5;248m",   "",	"", 	"  ".join(""),  		"\x1b[m", ("Unknown")),
-"☀":	("☀️",  "\x1b[38;5;248m滛", 	"滛",	"", 	"  ".join("望")+" ",  "\x1b[m", ("Sunny")),
-"☁":	("☁️",  "\x1b[38;5;248m摒", 	"摒", 	"", 	"  ".join(""), 		"\x1b[m", ("Cloudy", "VeryCloudy")),
-"⛅":	("⛅️", "\x1b[38;5;248m杖", 	"杖", 	"", 	"  ".join(""), 		"\x1b[m", ("PartlyCloudy")),
-"🌫":	("🌫️", "\x1b[38;5;248m敖",  "敖",  	"", 	"  ".join(""), 		"\x1b[m", ("Fog")),
-"🌦":	("🌦️", "\x1b[38;5;27m", 	"殺", 	"", 	"  ".join(""), 		"\x1b[m", ("LightRain", "LightShowers")),
-"🌧":	("🌧️", "\x1b[38;5;27m", 	"殺", 	"", 	"  ".join(""), 		"\x1b[m", ("HeavyRain", "HeavyShowers", "LightSleet", "LightSleetShowers")),
-"⛈":	("⛈️", "\x1b[38;5;229m",	"ﭼ", 	"", 	"  ".join(""), 		"\x1b[m", ("ThunderyShowers", "ThunderySnowShowers")),
-"🌩":	("🌩️", "\x1b[38;5;229m", 	"朗",	"",	"  ".join(""), 		"\x1b[m", ("ThunderyHeavyRain")),
-"🌨":	("🌨️", "\x1b[38;5;153mﰕ",	"流", 	"", 	"  ".join(""),  		"\x1b[m", ("LightSnow", "LightSnowShowers")),
-"❄":	("❄️",  "\x1b[38;5;153m",	"",  	"", 	"  ".join(""),		"\x1b[m", ("HeavySnow", "HeavySnowShowers")),
 
-}
-from pytermor import utilstr
-[print(re.sub(r'', r'', (k+'\t->\t'+'\t'.join(utilstr.ljust_sgr(str(s or '.'), 4) for s in v)).rstrip())) for k,v in WEATHER_SYMBOL.items()]
+@dataclass
+class DynamicIcon:
+    day_icon: str
+    night_icon: str
+    extra_icon: str | None = None
 
-WEATHER_SYMBOL_WIDTH_VTE = {
-    "✨": 2,
-    "☁️": 1,
-    "🌫": 2,
-    "🌧": 2,
-    "🌧": 2,
-    "❄️": 1,
-    "❄️": 1,
-    "🌦": 1,
-    "🌦": 1,
-    "🌧": 1,
-    "🌧": 1,
-    "🌨": 2,
-    "🌨": 2,
-    "⛅️": 2,
-    "☀️": 1,
-    "🌩": 2,
-    "⛈": 1,
-    "⛈": 1,
-    "☁️": 1,
-}
+    def select(self) -> str:  # @fixme use sun calc
+        now = datetime.datetime.now()
+        if now.hour == 0:
+            return self.extra_icon or self.night_icon
+        if now.hour >= 22 or now.hour <= 6:
+            return self.night_icon
+        return self.day_icon
 
-WIND_DIRECTION = [
-    "↓", "↙", "←", "↖", "↑", "↗", "→", "↘",
-]
 
-MOON_PHASES = (
-    "🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"
-)
+class WeatherIconSet:
+    NO_COLOR_SET_IDS = [0]
 
-WEATHER_SYMBOL_WI_DAY = {
-    "Unknown":             "",
-    "Cloudy":              "",
-    "Fog":                 "",
-    "HeavyRain":           "",
-    "HeavyShowers":        "",
-    "HeavySnow":           "",
-    "HeavySnowShowers":    "",
-    "LightRain":           "",
-    "LightShowers":        "",
-    "LightSleet":          "",
-    "LightSleetShowers":   "",
-    "LightSnow":           "",
-    "LightSnowShowers":    "",
-    "PartlyCloudy":        "",
-    "Sunny":               "",
-    "ThunderyHeavyRain":   "",
-    "ThunderyShowers":     "",
-    "ThunderySnowShowers": "",
-    "VeryCloudy": "",
+    def __init__(self, color_code: int, *icons: str | tuple[str, ...], wwo_codes: list[str]):
+        self._style: pt.Style = pt.Style(fg=pt.Color256.get_by_code(color_code))
+        self._icons: list[str | DynamicIcon] = [
+            s if isinstance(s, str) else DynamicIcon(*s) for s in icons
+        ]
+        self._wwo_codes: list[str] = wwo_codes
+
+    def get_icon(self, set_id: int) -> tuple[str, pt.Style]:
+        if set_id >= len(self._icons):
+            raise IndexError(f"Set #{set_id} is undefined")
+
+        icon = self._icons[set_id]
+        if isinstance(icon, DynamicIcon):
+            icon = icon.select()
+
+        if set_id in self.NO_COLOR_SET_IDS:
+            return icon, pt.NOOP_STYLE
+        return icon, self._style
+
+
+# fmt: off
+WEATHER_ICON_SETS: dict[str, WeatherIconSet] = {  # @FIXME compensate various width
+     "✨": WeatherIconSet(248,	"✨️ ",	"",	"",	"",	("",	"",	""),	wwo_codes=["Unknown"]),
+    "☀": WeatherIconSet(248,	"☀️ ",	"滛",	"滛",	"",	("",	"望",	""),	wwo_codes=["Sunny"]),
+     "☁": WeatherIconSet(248,	"☁️ ",	"摒",	"摒",	"",	("",	""),			wwo_codes=["Cloudy", "VeryCloudy"]),
+    "⛅": WeatherIconSet(248,	"⛅️ ",	"杖",	"杖",	"",	("",	""), 			wwo_codes=["PartlyCloudy"]),
+    "🌫": WeatherIconSet(248,	"🌫️ ",	"敖",	"敖",	"",	("",	""), 			wwo_codes=["Fog"]),
+    "🌦": WeatherIconSet( 27,	"🌦️ ",	"",	"殺",	"",	("",	""), 			wwo_codes=["LightRain", "LightShowers"]),
+    "🌧": WeatherIconSet( 27,	"🌧️ ",	"",	"殺",	"",	("",	""), 			wwo_codes=["HeavyRain", "HeavyShowers", "LightSleet", "LightSleetShowers"]),
+    "⛈": WeatherIconSet(229,	"⛈️ ",	"",	"ﭼ",	"",	("",	""), 			wwo_codes=["ThunderyShowers", "ThunderySnowShowers"]),
+    "🌩": WeatherIconSet(229,	"🌩️ ",	"",	"朗",	"",	("",	""),			wwo_codes=["ThunderyHeavyRain"]),
+    "🌨": WeatherIconSet(153,	"🌨️ ",	"ﰕ",	"流",	"",	("",	""),			wwo_codes=["LightSnow", "LightSnowShowers"]),
+     "❄": WeatherIconSet(153,	"❄️ ",	"",	"",	"",	("",	""),			wwo_codes=["HeavySnow", "HeavySnowShowers"]),
 }
 
-WEATHER_SYMBOL_WI_NIGHT = {
-    "Unknown":             "",
-    "Cloudy":              "",
-    "Fog":                 "",
-    "HeavyRain":           "",
-    "HeavyShowers":        "",
-    "HeavySnow":           "",
-    "HeavySnowShowers":    "",
-    "LightRain":           "",
-    "LightShowers":        "",
-    "LightSleet":          "",
-    "LightSleetShowers":   "",
-    "LightSnow":           "",
-    "LightSnowShowers":    "",
-    "PartlyCloudy":        "",
-    "Sunny":               "",
-    "ThunderyHeavyRain":   "",
-    "ThunderyShowers":     "",
-    "ThunderySnowShowers": "",
-    "VeryCloudy": "",
-}
+WIND_DIRECTION = ["↓", "↙", "←", "↖", "↑", "↗", "→", "↘"]
 
 WEATHER_SYMBOL_PLAIN = {
-    "Unknown":      	         "?",
-    "Cloudy":              "mm",
-    "Fog":                 "=",
-    "HeavyRain":           "///",
-    "HeavyShowers":        "//",
-    "HeavySnow":           "**",
-    "HeavySnowShowers":    "*/*",
-    "LightRain":           "/",
-    "LightShowers":        ".",
-    "LightSleet":          "x",
-    "LightSleetShowers":   "x/",
-    "LightSnow":           "*",
-    "LightSnowShowers":    "*/",
-    "PartlyCloudy":        "m",
-    "Sunny":               "o",
-    "ThunderyHeavyRain":   "/!/",
-    "ThunderyShowers":     "!/",
-    "ThunderySnowShowers": "*!*",
-    "VeryCloudy": "mmm",
+    "Unknown":				"?",
+    "Cloudy":				"mm",
+    "Fog":					"=",
+    "HeavyRain":			"///",
+    "HeavyShowers":			"//",
+    "HeavySnow":			"**",
+    "HeavySnowShowers":		"*/*",
+    "LightRain":			"/",
+    "LightShowers":			".",
+    "LightSleet":			"x",
+    "LightSleetShowers":	"x/",
+    "LightSnow":			"*",
+    "LightSnowShowers":		"*/",
+    "PartlyCloudy":			"m",
+    "Sunny":				"o",
+    "ThunderyHeavyRain":	"/!/",
+    "ThunderyShowers":		"!/",
+    "ThunderySnowShowers":	"*!*",
+    "VeryCloudy":			"mmm",
 }
+# fmt: on
 
-WEATHER_SYMBOL_WIDTH_VTE_WI = {
-}
 
-WIND_DIRECTION_WI = [
-    "", "", "", "", "", "", "", "",
-]
-
-WIND_SCALE_WI = [
-    "", "", "", "", "", "", "", "", "", "", "", "", "",
-]
-
-MOON_PHASES_WI = (
-    "", "", "", "", "", "", "",
-    "", "", "", "", "", "", "",
-    "", "", "", "", "", "", "",
-    "", "", "", "", "", "", "",
-)
-
-WEATHER_SYMBOL_WEGO = {
-    "Unknown": [
-        "    .-.      ",
-        "     __)     ",
-        "    (        ",
-        "     `-’     ",
-        "      •      "],
-    "Sunny": [
-        "\033[38;5;226m    \\   /    \033[0m",
-        "\033[38;5;226m     .-.     \033[0m",
-        "\033[38;5;226m  ― (   ) ―  \033[0m",
-        "\033[38;5;226m     `-’     \033[0m",
-        "\033[38;5;226m    /   \\    \033[0m"],
-    "PartlyCloudy": [
-        "\033[38;5;226m   \\  /\033[0m      ",
-        "\033[38;5;226m _ /\"\"\033[38;5;250m.-.    \033[0m",
-        "\033[38;5;226m   \\_\033[38;5;250m(   ).  \033[0m",
-        "\033[38;5;226m   /\033[38;5;250m(___(__) \033[0m",
-        "             "],
-    "Cloudy": [
-        "             ",
-        "\033[38;5;250m     .--.    \033[0m",
-        "\033[38;5;250m  .-(    ).  \033[0m",
-        "\033[38;5;250m (___.__)__) \033[0m",
-        "             "],
-    "VeryCloudy": [
-        "             ",
-        "\033[38;5;240;1m     .--.    \033[0m",
-        "\033[38;5;240;1m  .-(    ).  \033[0m",
-        "\033[38;5;240;1m (___.__)__) \033[0m",
-        "             "],
-    "LightShowers": [
-        "\033[38;5;226m _`/\"\"\033[38;5;250m.-.    \033[0m",
-        "\033[38;5;226m  ,\\_\033[38;5;250m(   ).  \033[0m",
-        "\033[38;5;226m   /\033[38;5;250m(___(__) \033[0m",
-        "\033[38;5;111m     ‘ ‘ ‘ ‘ \033[0m",
-        "\033[38;5;111m    ‘ ‘ ‘ ‘  \033[0m"],
-    "HeavyShowers": [
-        "\033[38;5;226m _`/\"\"\033[38;5;240;1m.-.    \033[0m",
-        "\033[38;5;226m  ,\\_\033[38;5;240;1m(   ).  \033[0m",
-        "\033[38;5;226m   /\033[38;5;240;1m(___(__) \033[0m",
-        "\033[38;5;21;1m   ‚‘‚‘‚‘‚‘  \033[0m",
-        "\033[38;5;21;1m   ‚’‚’‚’‚’  \033[0m"],
-    "LightSnowShowers": [
-        "\033[38;5;226m _`/\"\"\033[38;5;250m.-.    \033[0m",
-        "\033[38;5;226m  ,\\_\033[38;5;250m(   ).  \033[0m",
-        "\033[38;5;226m   /\033[38;5;250m(___(__) \033[0m",
-        "\033[38;5;255m     *  *  * \033[0m",
-        "\033[38;5;255m    *  *  *  \033[0m"],
-    "HeavySnowShowers": [
-        "\033[38;5;226m _`/\"\"\033[38;5;240;1m.-.    \033[0m",
-        "\033[38;5;226m  ,\\_\033[38;5;240;1m(   ).  \033[0m",
-        "\033[38;5;226m   /\033[38;5;240;1m(___(__) \033[0m",
-        "\033[38;5;255;1m    * * * *  \033[0m",
-        "\033[38;5;255;1m   * * * *   \033[0m"],
-    "LightSleetShowers": [
-        "\033[38;5;226m _`/\"\"\033[38;5;250m.-.    \033[0m",
-        "\033[38;5;226m  ,\\_\033[38;5;250m(   ).  \033[0m",
-        "\033[38;5;226m   /\033[38;5;250m(___(__) \033[0m",
-        "\033[38;5;111m     ‘ \033[38;5;255m*\033[38;5;111m ‘ \033[38;5;255m* \033[0m",
-        "\033[38;5;255m    *\033[38;5;111m ‘ \033[38;5;255m*\033[38;5;111m ‘  \033[0m"],
-    "ThunderyShowers": [
-        "\033[38;5;226m _`/\"\"\033[38;5;250m.-.    \033[0m",
-        "\033[38;5;226m  ,\\_\033[38;5;250m(   ).  \033[0m",
-        "\033[38;5;226m   /\033[38;5;250m(___(__) \033[0m",
-        "\033[38;5;228;5m    ⚡\033[38;5;111;25m‘ ‘\033[38;5;228;5m⚡\033[38;5;111;25m‘ ‘ \033[0m",
-        "\033[38;5;111m    ‘ ‘ ‘ ‘  \033[0m"],
-    "ThunderyHeavyRain": [
-        "\033[38;5;240;1m     .-.     \033[0m",
-        "\033[38;5;240;1m    (   ).   \033[0m",
-        "\033[38;5;240;1m   (___(__)  \033[0m",
-        "\033[38;5;21;1m  ‚‘\033[38;5;228;5m⚡\033[38;5;21;25m‘‚\033[38;5;228;5m⚡\033[38;5;21;25m‚‘ \033[0m",
-        "\033[38;5;21;1m  ‚’‚’\033[38;5;228;5m⚡\033[38;5;21;25m’‚’  \033[0m"],
-    "ThunderySnowShowers": [
-        "\033[38;5;226m _`/\"\"\033[38;5;250m.-.    \033[0m",
-        "\033[38;5;226m  ,\\_\033[38;5;250m(   ).  \033[0m",
-        "\033[38;5;226m   /\033[38;5;250m(___(__) \033[0m",
-        "\033[38;5;255m     *\033[38;5;228;5m⚡\033[38;5;255;25m*\033[38;5;228;5m⚡\033[38;5;255;25m* \033[0m",
-        "\033[38;5;255m    *  *  *  \033[0m"],
-    "LightRain": [
-        "\033[38;5;250m     .-.     \033[0m",
-        "\033[38;5;250m    (   ).   \033[0m",
-        "\033[38;5;250m   (___(__)  \033[0m",
-        "\033[38;5;111m    ‘ ‘ ‘ ‘  \033[0m",
-        "\033[38;5;111m   ‘ ‘ ‘ ‘   \033[0m"],
-    "HeavyRain": [
-        "\033[38;5;240;1m     .-.     \033[0m",
-        "\033[38;5;240;1m    (   ).   \033[0m",
-        "\033[38;5;240;1m   (___(__)  \033[0m",
-        "\033[38;5;21;1m  ‚‘‚‘‚‘‚‘   \033[0m",
-        "\033[38;5;21;1m  ‚’‚’‚’‚’   \033[0m"],
-    "LightSnow": [
-        "\033[38;5;250m     .-.     \033[0m",
-        "\033[38;5;250m    (   ).   \033[0m",
-        "\033[38;5;250m   (___(__)  \033[0m",
-        "\033[38;5;255m    *  *  *  \033[0m",
-        "\033[38;5;255m   *  *  *   \033[0m"],
-    "HeavySnow": [
-        "\033[38;5;240;1m     .-.     \033[0m",
-        "\033[38;5;240;1m    (   ).   \033[0m",
-        "\033[38;5;240;1m   (___(__)  \033[0m",
-        "\033[38;5;255;1m   * * * *   \033[0m",
-        "\033[38;5;255;1m  * * * *    \033[0m"],
-    "LightSleet": [
-        "\033[38;5;250m     .-.     \033[0m",
-        "\033[38;5;250m    (   ).   \033[0m",
-        "\033[38;5;250m   (___(__)  \033[0m",
-        "\033[38;5;111m    ‘ \033[38;5;255m*\033[38;5;111m ‘ \033[38;5;255m*  \033[0m",
-        "\033[38;5;255m   *\033[38;5;111m ‘ \033[38;5;255m*\033[38;5;111m ‘   \033[0m"],
-    "Fog": [
-        "             ",
-        "\033[38;5;251m _ - _ - _ - \033[0m",
-        "\033[38;5;251m  _ - _ - _  \033[0m",
-        "\033[38;5;251m _ - _ - _ - \033[0m",
-        "             "],
-}
-
-LOCALE = {
-    "af": "af_ZA", "ar": "ar_TN", "az": "az_AZ", "be": "be_BY", "bg": "bg_BG",
-    "bs": "bs_BA", "ca": "ca_ES", "cs": "cs_CZ", "cy": "cy_GB", "da": "da_DK",
-    "de": "de_DE", "el": "el_GR", "eo": "eo", "es": "es_ES", "et": "et_EE",
-    "fa": "fa_IR", "fi": "fi_FI", "fr": "fr_FR", "fy": "fy_NL", "ga": "ga_IE",
-    "he": "he_IL", "hr": "hr_HR", "hu": "hu_HU", "hy": "hy_AM", "ia": "ia",
-    "id": "id_ID", "is": "is_IS", "it": "it_IT", "ja": "ja_JP", "jv": "en_US",
-    "ka": "ka_GE", "ko": "ko_KR", "kk": "kk_KZ", "ky": "ky_KG", "lt": "lt_LT",
-    "lv": "lv_LV", "mk": "mk_MK", "ml": "ml_IN", "nb": "nb_NO", "nl": "nl_NL",
-    "nn": "nn_NO", "pt": "pt_PT", "pt-br":"pt_BR", "pl": "pl_PL", "ro": "ro_RO",
-    "ru": "ru_RU", "sv": "sv_SE", "sk": "sk_SK", "sl": "sl_SI", "sr": "sr_RS",
-    "sr-lat": "sr_RS@latin", "sw": "sw_KE", "th": "th_TH", "tr": "tr_TR", "uk": "uk_UA",
-    "uz": "uz_UZ", "vi": "vi_VN", "zh": "zh_TW", "zu": "zu_ZA", "mg": "mg_MG",
-}
+def format_weather_icon(origin: str, set_id: int = 0) -> tuple[str, pt.Style]:
+    for key, icon_set in WEATHER_ICON_SETS.items():
+        if key == origin:
+            return icon_set.get_icon(set_id)
+    return origin, pt.NOOP_STYLE
