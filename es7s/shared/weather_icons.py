@@ -93,6 +93,7 @@ class WeatherIconSet:
         icon = self._icons[set_id]
         if isinstance(icon, DynamicIcon):
             icon = icon.select()
+        icon += WEATHER_ICON_TERMINATOR
 
         if set_id in self.NO_COLOR_SET_IDS:
             return icon, pt.NOOP_STYLE
@@ -121,6 +122,10 @@ WEATHER_ICON_SETS: dict[str, WeatherIconSet] = {  # @FIXME compensate various wi
     "🌨": WeatherIconSet(153,	"🌨️",	"ﰕ",	"流",	"",	("",	""),			wwo_codes=["LightSnow", "LightSnowShowers"]),
      "❄": WeatherIconSet(153,	"❄️",	"",	"",	"",	("",	""),			wwo_codes=["HeavySnow", "HeavySnowShowers"]),
 }
+
+WEATHER_ICON_TERMINATOR = '\u200e'
+# Unicode LRM to force disable right-to-left
+# mode after some icons getting printed
 
 WIND_DIRECTION = ["↓", "↙", "←", "↖", "↑", "↗", "→", "↘"]
 
@@ -154,24 +159,3 @@ def format_weather_icon(origin: str, set_id: int = 0) -> tuple[str, pt.Style]:
             return icon_set.get_icon(set_id)
     return origin, pt.NOOP_STYLE
 
-
-
-import sys, unicodedata
-
-
-def measure(icon: str):
-    response = ""
-    print("\x1b[32m"+icon+"\x1b[6n", end='\x1b[34m')
-    sleep(.2)
-    while not response.endswith('R'):
-        response += sys.stdin.read(1) #wait_key()
-    print(pt.ansi.make_erase_in_line(2).assemble()+pt.ansi.make_set_cursor_x_abs(1).assemble(), end='\x1b[m')
-    print(f"{ord(icon):6x}" + '| ' + response.split(';')[1].removesuffix('R').strip()+ ' |'+pt.render(icon, pt.Style(fg='green', bg='black'))+'|', end='\n', file=sys.stderr)
-
-def iterate():
-    for weather_icon, weather_icon_set in WEATHER_ICON_SETS.items():
-        for icon_set_id in range(0, 5):
-            icons = weather_icon_set.get_raw(icon_set_id)
-            for icon in icons:
-                if not icon: continue
-                measure(icon)
