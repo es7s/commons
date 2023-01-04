@@ -1,3 +1,8 @@
+# ------------------------------------------------------------------------------
+#  es7s/core
+#  (c) 2023 A. Shavykin <0.delameter@gmail.com>
+# ------------------------------------------------------------------------------
+
 import datetime
 from dataclasses import dataclass
 from time import sleep

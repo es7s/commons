@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 #  es7s/core
-#  (c) 2022 A. Shavykin <0.delameter@gmail.com>
+#  (c) 2022-2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
 
 # python considers first three as line separators
