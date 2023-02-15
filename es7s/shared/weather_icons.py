@@ -5,10 +5,8 @@
 
 import datetime
 from dataclasses import dataclass
-from time import sleep
 
 import pytermor as pt
-from pytermor import wait_key
 
 WWO_CODE = {
     "113": "Sunny",
@@ -68,21 +66,21 @@ class DynamicIcon:
     night_icon: str
     extra_icon: str | None = None
 
-    def select(self) -> str:  # @fixme use sun calc
-        now = datetime.datetime.now()
-        if now.hour == 0:
+    def select(self, override_hour: int = None) -> str:  # @fixme use sun calc
+        eff_hour = override_hour or datetime.datetime.now().hour
+        if eff_hour == 0:
             return self.extra_icon or self.night_icon
-        if now.hour >= 22 or now.hour <= 6:
+        if eff_hour >= 22 or eff_hour <= 6:
             return self.night_icon
         return self.day_icon
 
     def get_raw(self) -> tuple[str, ...]:
-        return self.day_icon, self.night_icon, self.extra_icon
-
+        return tuple(filter(None, (self.day_icon, self.night_icon, self.extra_icon)))
 
 
 class WeatherIconSet:
     NO_COLOR_SET_IDS = [0]
+    MAX_SET_ID = 0
 
     def __init__(self, color_code: int, *icons: str | tuple[str, ...], wwo_codes: list[str]):
         self._style: pt.Style = pt.Style(fg=pt.Color256.get_by_code(color_code))
@@ -90,34 +88,38 @@ class WeatherIconSet:
             s if isinstance(s, str) else DynamicIcon(*s) for s in icons
         ]
         self._wwo_codes: list[str] = wwo_codes
+        WeatherIconSet.MAX_SET_ID = max(WeatherIconSet.MAX_SET_ID, len(self._icons) - 1)
 
-    def get_icon(self, set_id: int) -> tuple[str, pt.Style]:
-        if set_id >= len(self._icons):
+    def get_icon(self, set_id: int, override_hour: int = None) -> tuple[str, str, pt.Style]:
+        """
+        :return: (icon, terminator, style)
+        """
+        if set_id < 0 or set_id >= WeatherIconSet.MAX_SET_ID:
             raise IndexError(f"Set #{set_id} is undefined")
 
         icon = self._icons[set_id]
         if isinstance(icon, DynamicIcon):
-            icon = icon.select()
-        icon += WEATHER_ICON_TERMINATOR
+            icon = icon.select(override_hour)
+        icon = ljust_unicode_aware(icon)
 
         if set_id in self.NO_COLOR_SET_IDS:
-            return icon, pt.NOOP_STYLE
-        return icon, self._style
+            return icon, WEATHER_ICON_TERMINATOR, pt.NOOP_STYLE
+        return icon, WEATHER_ICON_TERMINATOR, self._style
 
-    def get_raw(self, set_id: int) -> str|tuple[str]:
-        if set_id >= len(self._icons):
+    def get_raw(self, set_id: int) -> tuple[str]:
+        if set_id < 0 or set_id >= WeatherIconSet.MAX_SET_ID:
             raise IndexError(f"Set #{set_id} is undefined")
         icon = self._icons[set_id]
         if isinstance(icon, DynamicIcon):
             return icon.get_raw()
-        return icon
+        return icon,
 
 
 # fmt: off
-WEATHER_ICON_SETS: dict[str, WeatherIconSet] = {  # @FIXME compensate various width
-     "✨": WeatherIconSet(248,	"✨️",	"",	"",	"",	("",	"",	""),	wwo_codes=["Unknown"]),
+WEATHER_ICON_SETS: dict[str, WeatherIconSet] = {
+    "✨": WeatherIconSet(248,	"✨️",	"",	"",	"",	("",	"",	""),	wwo_codes=["Unknown"]),
     "☀": WeatherIconSet(248,	"☀️",	"滛",	"滛",	"",	("",	"望",	""),	wwo_codes=["Sunny"]),
-     "☁": WeatherIconSet(248,	"☁️",	"摒",	"摒",	"",	("",	""),			wwo_codes=["Cloudy", "VeryCloudy"]),
+    "☁":  WeatherIconSet(248,	"☁️",	"摒",	"摒",	"",	("",	""),			wwo_codes=["Cloudy", "VeryCloudy"]),
     "⛅": WeatherIconSet(248,	"⛅️",	"杖",	"杖",	"",	("",	""), 			wwo_codes=["PartlyCloudy"]),
     "🌫": WeatherIconSet(248,	"🌫️",	"敖",	"敖",	"",	("",	""), 			wwo_codes=["Fog"]),
     "🌦": WeatherIconSet( 27,	"🌦️",	"",	"殺",	"",	("",	""), 			wwo_codes=["LightRain", "LightShowers"]),
@@ -125,7 +127,55 @@ WEATHER_ICON_SETS: dict[str, WeatherIconSet] = {  # @FIXME compensate various wi
     "⛈": WeatherIconSet(229,	"⛈️",	"",	"ﭼ",	"",	("",	""), 			wwo_codes=["ThunderyShowers", "ThunderySnowShowers"]),
     "🌩": WeatherIconSet(229,	"🌩️",	"",	"朗",	"",	("",	""),			wwo_codes=["ThunderyHeavyRain"]),
     "🌨": WeatherIconSet(153,	"🌨️",	"ﰕ",	"流",	"",	("",	""),			wwo_codes=["LightSnow", "LightSnowShowers"]),
-     "❄": WeatherIconSet(153,	"❄️",	"",	"",	"",	("",	""),			wwo_codes=["HeavySnow", "HeavySnowShowers"]),
+    "❄": WeatherIconSet(153,	"❄️",	"",	"",	"",	("",	""),			wwo_codes=["HeavySnow", "HeavySnowShowers"]),
+}
+
+WEATHER_ICON_WIDTH = {
+    "✨": 2,
+    "✨️": 3,
+    "": 2,
+    "☀": 2,
+    "☀️": 3,
+    "滛": 3,
+    "": 2,
+    "☁": 2,
+    "☁️": 3,
+    "摒": 3,
+    "": 2,
+    "⛅": 2,
+    "⛅️": 3,
+    "杖": 3,
+    "": 2,
+    "🌫": 3,
+    "🌫️": 4,
+    "敖": 3,
+    "": 2,
+    "🌦": 3,
+    "🌦️": 4,
+    "": 2,
+    "": 2,
+    "🌧": 3,
+    "🌧️": 4,
+    "": 2,
+    "殺": 3,
+    "": 2,
+    "⛈": 2,
+    "⛈️": 3,
+    "ﭼ": 2,
+    "": 2,
+    "🌩": 3,
+    "🌩️": 4,
+    "": 2,
+    "朗": 3,
+    "": 2,
+    "🌨": 3,
+    "🌨️": 4,
+    "ﰕ": 2,
+    "流": 3,
+    "": 2,
+    "❄": 2,
+    "❄️": 3,
+    "": 2,
 }
 
 WEATHER_ICON_TERMINATOR = '\u200e'
@@ -158,9 +208,31 @@ WEATHER_SYMBOL_PLAIN = {
 # fmt: on
 
 
-def format_weather_icon(origin: str, set_id: int = 0) -> tuple[str, pt.Style]:
-    for key, icon_set in WEATHER_ICON_SETS.items():
-        if key == origin:
+def format_weather_icon(origin: str, set_id: int = 0) -> tuple[str, str, pt.Style]:
+    """
+    :param set_id:
+    :param origin: initial icon (wttr.in)
+    :return: (updated-icon, string terminator, style)
+    """
+    if icon_set := WEATHER_ICON_SETS.get(origin, None):
+        try:
             return icon_set.get_icon(set_id)
-    return origin, pt.NOOP_STYLE
+        except IndexError:
+            pass
+    return ljust_unicode_aware(origin), "", pt.NOOP_STYLE
 
+
+def get_raw_weather_icons(origin: str, set_id: int = 0) -> tuple[str]:
+    if icon_set := WEATHER_ICON_SETS.get(origin, None):
+        try:
+            return icon_set.get_raw(set_id)
+        except IndexError:
+            pass
+    return origin,
+
+
+def ljust_unicode_aware(icon: str) -> str:
+    max_icon_width = max(WEATHER_ICON_WIDTH.values())
+    if icon in WEATHER_ICON_WIDTH.keys():
+        return icon + ' '*(max_icon_width - WEATHER_ICON_WIDTH[icon])
+    return icon + ' '*(max_icon_width - 1)
