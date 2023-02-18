@@ -5,7 +5,6 @@
 
 import datetime
 from dataclasses import dataclass
-
 import pytermor as pt
 
 WWO_CODE = {
@@ -100,7 +99,6 @@ class WeatherIconSet:
         icon = self._icons[set_id]
         if isinstance(icon, DynamicIcon):
             icon = icon.select(override_hour)
-        icon = ljust_unicode_aware(icon)
 
         if set_id in self.NO_COLOR_SET_IDS:
             return icon, WEATHER_ICON_TERMINATOR, pt.NOOP_STYLE
@@ -112,7 +110,7 @@ class WeatherIconSet:
         icon = self._icons[set_id]
         if isinstance(icon, DynamicIcon):
             return icon.get_raw()
-        return icon,
+        return (icon,)
 
 
 # fmt: off
@@ -128,54 +126,6 @@ WEATHER_ICON_SETS: dict[str, WeatherIconSet] = {
     "🌩": WeatherIconSet(229,	"🌩️",	"",	"朗",	"",	("",	""),			wwo_codes=["ThunderyHeavyRain"]),
     "🌨": WeatherIconSet(153,	"🌨️",	"ﰕ",	"流",	"",	("",	""),			wwo_codes=["LightSnow", "LightSnowShowers"]),
     "❄": WeatherIconSet(153,	"❄️",	"",	"",	"",	("",	""),			wwo_codes=["HeavySnow", "HeavySnowShowers"]),
-}
-
-WEATHER_ICON_WIDTH = {
-    "✨": 2,
-    "✨️": 3,
-    "": 2,
-    "☀": 2,
-    "☀️": 3,
-    "滛": 3,
-    "": 2,
-    "☁": 2,
-    "☁️": 3,
-    "摒": 3,
-    "": 2,
-    "⛅": 2,
-    "⛅️": 3,
-    "杖": 3,
-    "": 2,
-    "🌫": 3,
-    "🌫️": 4,
-    "敖": 3,
-    "": 2,
-    "🌦": 3,
-    "🌦️": 4,
-    "": 2,
-    "": 2,
-    "🌧": 3,
-    "🌧️": 4,
-    "": 2,
-    "殺": 3,
-    "": 2,
-    "⛈": 2,
-    "⛈️": 3,
-    "ﭼ": 2,
-    "": 2,
-    "🌩": 3,
-    "🌩️": 4,
-    "": 2,
-    "朗": 3,
-    "": 2,
-    "🌨": 3,
-    "🌨️": 4,
-    "ﰕ": 2,
-    "流": 3,
-    "": 2,
-    "❄": 2,
-    "❄️": 3,
-    "": 2,
 }
 
 WEATHER_ICON_TERMINATOR = '\u200e'
@@ -208,31 +158,31 @@ WEATHER_SYMBOL_PLAIN = {
 # fmt: on
 
 
-def format_weather_icon(origin: str, set_id: int = 0) -> tuple[str, str, pt.Style]:
+def get_wicon(origin: str, set_id: int) -> tuple[str, str, pt.Style]:
     """
-    :param set_id:
     :param origin: initial icon (wttr.in)
+    :param set_id:
     :return: (updated-icon, string terminator, style)
     """
     if icon_set := WEATHER_ICON_SETS.get(origin, None):
         try:
-            return icon_set.get_icon(set_id)
+            icon, term, style = icon_set.get_icon(set_id)
+            return icon, term, style
         except IndexError:
             pass
-    return ljust_unicode_aware(origin), "", pt.NOOP_STYLE
+    return origin, "", pt.NOOP_STYLE
 
 
-def get_raw_weather_icons(origin: str, set_id: int = 0) -> tuple[str]:
-    if icon_set := WEATHER_ICON_SETS.get(origin, None):
-        try:
-            return icon_set.get_raw(set_id)
-        except IndexError:
-            pass
-    return origin,
-
-
-def ljust_unicode_aware(icon: str) -> str:
-    max_icon_width = max(WEATHER_ICON_WIDTH.values())
-    if icon in WEATHER_ICON_WIDTH.keys():
-        return icon + ' '*(max_icon_width - WEATHER_ICON_WIDTH[icon])
-    return icon + ' '*(max_icon_width - 1)
+def justify_wicon(icon: str, max_width: int, measure=False) -> tuple[str, int]:
+    """
+    :param icon:
+    :param measure:
+    :return: Tuple of justified icon and real icon width (if measure is *True*,
+             they can differ).
+    """
+    if measure:
+        width = pt.measure_char_width(icon)
+    else:
+        width = sum(max(0, pt.guess_char_width(c)) for c in icon)
+    fill = '␣' if measure else ' '
+    return icon + fill*(max_width - width), width
