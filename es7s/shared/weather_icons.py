@@ -93,7 +93,7 @@ class WeatherIconSet:
         """
         :return: (icon, terminator, style)
         """
-        if set_id < 0 or set_id >= WeatherIconSet.MAX_SET_ID:
+        if set_id < 0 or set_id > WeatherIconSet.MAX_SET_ID:
             raise IndexError(f"Set #{set_id} is undefined")
 
         icon = self._icons[set_id]
@@ -120,10 +120,10 @@ WEATHER_ICON_SETS: dict[str, WeatherIconSet] = {
     "☁":  WeatherIconSet(248,	"☁️",	"摒",	"摒",	"",	("",	""),			wwo_codes=["Cloudy", "VeryCloudy"]),
     "⛅": WeatherIconSet(248,	"⛅️",	"杖",	"杖",	"",	("",	""), 			wwo_codes=["PartlyCloudy"]),
     "🌫": WeatherIconSet(248,	"🌫️",	"敖",	"敖",	"",	("",	""), 			wwo_codes=["Fog"]),
-    "🌦": WeatherIconSet( 27,	"🌦️",	"",	"殺",	"",	("",	""), 			wwo_codes=["LightRain", "LightShowers"]),
-    "🌧": WeatherIconSet( 27,	"🌧️",	"",	"殺",	"",	("",	""), 			wwo_codes=["HeavyRain", "HeavyShowers", "LightSleet", "LightSleetShowers"]),
-    "⛈": WeatherIconSet(229,	"⛈️",	"",	"ﭼ",	"",	("",	""), 			wwo_codes=["ThunderyShowers", "ThunderySnowShowers"]),
-    "🌩": WeatherIconSet(229,	"🌩️",	"",	"朗",	"",	("",	""),			wwo_codes=["ThunderyHeavyRain"]),
+    "🌦": WeatherIconSet( 74,	"🌦️",	"",	"殺",	"",	("",	""), 			wwo_codes=["LightRain", "LightShowers"]),
+    "🌧": WeatherIconSet( 74,	"🌧️",	"",	"殺",	"",	("",	""), 			wwo_codes=["HeavyRain", "HeavyShowers", "LightSleet", "LightSleetShowers"]),
+    "⛈": WeatherIconSet(179,	"⛈️",	"",	"ﭼ",	"",	("",	""), 			wwo_codes=["ThunderyShowers", "ThunderySnowShowers"]),
+    "🌩": WeatherIconSet(179,	"🌩️",	"",	"朗",	"",	("",	""),			wwo_codes=["ThunderyHeavyRain"]),
     "🌨": WeatherIconSet(153,	"🌨️",	"ﰕ",	"流",	"",	("",	""),			wwo_codes=["LightSnow", "LightSnowShowers"]),
     "❄": WeatherIconSet(153,	"❄️",	"",	"",	"",	("",	""),			wwo_codes=["HeavySnow", "HeavySnowShowers"]),
 }
