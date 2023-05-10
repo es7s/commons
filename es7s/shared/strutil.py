@@ -25,3 +25,17 @@ SUBSCRIPT_TRANS = str.maketrans({
 
 def to_subscript(s: str) -> str:
     return s.lower().translate(SUBSCRIPT_TRANS)
+
+
+# @todo to pytermor
+def cut(s: str, max_len: int, align: str = '<', overflow = '…'):
+    if len(s) > max_len:
+        if align == '<':
+            return s[:max_len-1] + overflow
+        elif align == '>':
+            return overflow + s[-max_len+1:]
+        else:
+            left_part = max_len//2
+            right_part = max_len - left_part
+            return s[:left_part - 1] + overflow + s[-right_part:]
+    return f'{s:{align}{max_len}s}'
