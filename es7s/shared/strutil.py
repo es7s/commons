@@ -28,14 +28,22 @@ def to_subscript(s: str) -> str:
 
 
 # @todo to pytermor
-def cut(s: str, max_len: int, align: str = '<', overflow = '…'):
-    if len(s) > max_len:
-        if align == '<':
-            return s[:max_len-1] + overflow
-        elif align == '>':
-            return overflow + s[-max_len+1:]
-        else:
-            left_part = max_len//2
-            right_part = max_len - left_part
-            return s[:left_part - 1] + overflow + s[-right_part:]
-    return f'{s:{align}{max_len}s}'
+def cut(s: str, max_len: int, align='<', overflow='…'):
+    max_len = max(0, max_len)
+    if max_len <= (ov_len := len(overflow)):
+        return overflow[:max_len]
+
+    if len(s) <= max_len:
+        return f'{s:{align}{max_len}s}'
+
+    if align == '<':
+        return s[:max_len - ov_len] + overflow
+    if align == '>':
+        return overflow + s[-max_len + ov_len:]
+    if align == '^':
+        s_chars = max_len - ov_len
+        left_part = s_chars // 2
+        right_part = s_chars - left_part
+        return s[:left_part] + overflow + s[-right_part:]
+    raise ValueError(f"Invalid align, expected '<'|'>'|'^', got '{align}'")
+

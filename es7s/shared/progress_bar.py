@@ -5,44 +5,98 @@
 import math
 import time
 import typing
+from functools import reduce
 
-import click
+import pytermor as pt
+
+from es7s.cli._terminal_state import TerminalStateController
+from es7s.shared import get_color, IoProxy, get_logger, get_stdout, Logger
+from es7s.shared.exception import NotInitializedError
+from es7s.shared.strutil import cut
 
 
 # @todo to pytermor
 class ProgressBar:
+    BAR_WIDTH = 5
     MAX_FRAME_RATE = 4
-    MAX_LABEL_LEN = 30
-    BG = "48;5;16"
-    FG = "37"
-    IDX1_FG = "94"
-    IDX2_FG = "34"
-    IDX_SEP = "/"
-    RATIO_FG = "5"
-    PBAR_FG = "5"
-    PBAR_BORDER_FG = "38;5;236"
-    SEP = " "
 
-    PROGRESS_BAR_WIDTH = 5
-    FILLED_CHAR = "▓"
-    EMPTY_CHAR = "░"
+    SEQ_DEFAULT = pt.SeqIndex.WHITE + pt.cv.GRAY_0.to_sgr(bg=True)
+    # SEQ_ICON = <THEME-BRIGHT-COLOR>                               # deferred
+    # SEQ_INDEX_CURRENT = <THEME-BRIGHT-COLOR> + pt.SeqIndex.BOLD   # deferred
+    # SEQ_INDEX_TOTAL = <THEME-COLOR> + pt.SeqIndex.BOLD_DIM_OFF    # deferred
+    SEQ_INDEX_DELIM = pt.SeqIndex.WHITE + pt.SeqIndex.BOLD_DIM_OFF + pt.SeqIndex.DIM
+    SEQ_LABEL_LOCAL = pt.SeqIndex.DIM
+
+    SEQ_RATIO_DIGITS = pt.SeqIndex.BOLD
+    SEQ_RATIO_PERCENT_SIGN = pt.SeqIndex.DIM
+    SEQ_BAR_BORDER = pt.cv.GRAY_19.to_sgr(bg=False) + pt.SeqIndex.BOLD_DIM_OFF
+    SEQ_BAR_FILLED = pt.cv.GRAY_0.to_sgr(bg=False) + pt.SeqIndex.BG_MAGENTA
+    SEQ_BAR_EMPTY = pt.SeqIndex.MAGENTA + pt.cv.GRAY_0.to_sgr(bg=True)
+
+    ICON = "◆"
+    FIELD_SEP = " "
+    INDEX_DELIM = "/"
+
     BORDER_LEFT_CHAR = "▕"
     BORDER_RIGHT_CHAR = "▏"
 
-    def __init__(self, thresholds: typing.Iterable[float] = None, threshold_count: int = None):
+    def __init__(self, io_proxy: IoProxy, logger: Logger, tstatectl: TerminalStateController|None):
+        self._enabled = False
+        self._io_proxy: IoProxy | None = io_proxy
+
+        if logger.verbosity == 0:
+            self._enabled = True
+            io_proxy.enable_progress_bar()
+
+            if tstatectl:
+                tstatectl.hide_cursor()
+                tstatectl.disable_input()
+
+        self._thresholds: list[float] | None = None
+        self._ratio_local: float = 0.0
+        self._thr_idx: int = 0
+        self._thr_finished: bool = False
+        self._icon_frame = 0
+        self._last_redraw_ts: float = 0.0
+        self._last_term_width_query_ts: float = 0.0
+        self._max_label_len = 0
+        self._label_thr: str = "Preparing"
+        self._label_local: str = ""
+
+        color = get_color()
+        theme_color = color.get_theme_color()
+        theme_bright_color = color.get_theme_bright_color()
+
+        self.SEQ_ICON = theme_bright_color.to_sgr(bg=False)
+        self.SEQ_INDEX_CURRENT = theme_bright_color.to_sgr(bg=False) + pt.SeqIndex.BOLD
+        self.SEQ_INDEX_TOTAL = theme_color.to_sgr(bg=False) + pt.SeqIndex.BOLD_DIM_OFF
+
+
+    def setup(
+        self,
+        threshold_count: int = None,
+        thresholds: typing.Iterable[float] = None,
+    ):
         if not thresholds and threshold_count:
             thresholds = [*(t / threshold_count for t in range(1, threshold_count + 1))]
 
         self._thresholds = sorted(
             filter(lambda v: 0.0 <= v <= 1.0, {0.0, 1.0, *(thresholds or [])})
         )
-        self._ratio_local: float = 0.0
-        self._thr_idx: int = 0
-        self._thr_finished: bool = False
-        self._icon_frame = 0
-        self._last_redraw_ts: float = 0.0
-        self._label = "Preparing"
+
+        self._compute_max_label_len()
         self.redraw()
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    def _compute_max_label_len(self):
+        self._last_term_width_query_ts = time.time()
+        self._max_label_len = pt.get_terminal_width() - (8 + self.BAR_WIDTH + 2 * self._get_max_threshold_idx_len())
+
+    def _get_max_threshold_idx_len(self) -> int:
+        return len(str(len(self._thresholds) - 1))
 
     def _get_ratio_global(self):
         if self._thr_finished:
@@ -76,21 +130,27 @@ class ProgressBar:
             raise IndexError(f"Threshold index out of bounds: {threshold_idx}")
         self._thr_idx = threshold_idx
 
-    def next_threshold(self, label: str = None):
-        self.set(next_threshold=1, ratio_local=0.0, label=label)
+    def next_threshold(self, label_thr: str = None):
+        self.set(next_threshold=1, ratio_local=0.0, label_thr=label_thr)
 
     # @temp finished IS ratio_local = 1.0
     def set(
         self,
         ratio_local: float = None,
         next_threshold: int = None,
-        label: str = None,
+        label_thr: str = None,
+        label_local: str = None,
         finished: bool = None,
     ):
+        if not self._thresholds:
+            raise NotInitializedError(self)
+
         if ratio_local is not None:
             self._ratio_local = max(0.0, min(1.0, ratio_local))
-        if label:
-            self._label = label
+        if label_thr is not None:
+            self._label_thr = label_thr
+        if label_local is not None:
+            self._label_local = label_local
         if finished is not None:
             self._thr_finished = finished
 
@@ -98,107 +158,96 @@ class ProgressBar:
             self._set_threshold(self._thr_idx + next_threshold)
             if finished is None:
                 self._thr_finished = False
+            if label_local is None:
+                self._label_local = ""
+
         self.redraw()
 
     def redraw(self):
-        idx = self._get_threshold_for_idx()
-        max_idx = len(self._thresholds) - 1
-        max_idx_len = len(str(max_idx))
+        if not self._thresholds:
+            raise NotInitializedError(self)
+        if not self._enabled:
+            return
 
         now = time.time()
-        if not self._last_redraw_ts or (now - self._last_redraw_ts > 1 / self.MAX_FRAME_RATE):
+        if not self._last_term_width_query_ts or (now - self._last_term_width_query_ts) > 5:
+            self._compute_max_label_len()
+
+        if not self._last_redraw_ts or (now - self._last_redraw_ts > (1 / self.MAX_FRAME_RATE)):
             self._last_redraw_ts = now
             self._icon_frame += 1
-
-        icon = "◆ "[self._icon_frame % 2]  #'⣿⣶⣭⣛⠿'[self._icon_frame % 5]
+        icon = [self.ICON, " "][self._icon_frame % 2]
         ratio = self._get_ratio()
-        bar = self._format_progress_bar(ratio, labeled=True)
 
-        start_str = f"\r\x1b[0K\x1b[{self.FG};{self.BG}m"
-        icon_str = f" {icon} "
-        label_str = f"{self._label:{self.MAX_LABEL_LEN}.{self.MAX_LABEL_LEN}s}"
-        label_idx_sep_str = f"\x1b[39;{self.FG}m{self.SEP}"
-        idx_str = (
-            f"\x1b[{self.IDX1_FG};1m{idx:>{max_idx_len}d}"
-            + f"\x1b[22;2;39;{self.FG}m{self.IDX_SEP}"
-            + f"\x1b[22;{self.IDX2_FG}m{max_idx}"
+        idx = self._get_threshold_for_idx()
+        max_idx_len = self._get_max_threshold_idx_len()
+        label = self._label_thr
+        if self._label_local:
+            label += " :: " + self._label_local
+
+        result_icon = f"{self.SEQ_DEFAULT}{self.SEQ_ICON} {icon} "
+        result_index = (
+            f"{self.SEQ_INDEX_CURRENT}{idx:>{max_idx_len}d}"
+            f"{self.SEQ_INDEX_DELIM}{self.INDEX_DELIM}"
+            f"{self.SEQ_INDEX_TOTAL}{len(self._thresholds) - 1:<d}"
         )
-        idx_ratio_sep_str = f"\x1b[39;{self.FG}m{self.SEP}"
-        # ratio_str = f'\x1b[{self.RATIO_FG};1m{100*ratio:>3.0f}\x1b[22;2m%\x1b[22;39;{self.FG}m'
-        bar_str = f" {bar} "
-        end_str = f"\x1b[0K\x1b[m"
+        result_ratio_bar = self._format_ratio_bar(ratio)
+        result_label = f"{self.SEQ_DEFAULT}{self.FIELD_SEP}" + cut(label, self._max_label_len)
 
-        click.echo(start_str + icon_str + idx_str + bar_str + label_str + end_str, nl=False)
-
-    def echo(self, msg="", nl=True, err=False):
-        click.echo("\r\x1b[0K" + msg, nl=nl, err=err)
+        result = reduce(
+            lambda t, s: str(t) + str(s),
+            [
+                result_icon,
+                self.FIELD_SEP,
+                result_index,
+                self.FIELD_SEP,
+                *result_ratio_bar,
+                result_label,
+            ],
+        )
+        self._io_proxy.echo_progress_bar(result)
 
     def close(self):
+        if not self._thresholds:
+            return
         self._thr_finished = True
         self._set_threshold(len(self._thresholds) - 1)
-        self.echo(nl=False)
 
-    def _format_progress_bar(self, ratio: float, labeled: bool) -> str:
-        filled_length = math.floor(ratio * self.PROGRESS_BAR_WIDTH)
-        if labeled:
-            return self._format_progress_bar_labeled(ratio, filled_length)
-        return self._format_progress_bar_plain(filled_length)
+    def _format_ratio_bar(self, ratio: float) -> typing.Iterable[str]:
+        filled_length = math.floor(ratio * self.BAR_WIDTH)
 
-    def _format_progress_bar_labeled(
-        self, ratio: float, filled_length: int
-    ) -> str:
         ratio_label = list(f"{100*ratio:>3.0f}%")
-        ratio_label_len = 4
-        ratio_label_pos = (self.PROGRESS_BAR_WIDTH - ratio_label_len) // 2
-        ratio_label_perc_pos = ratio_label_pos + 3
+        ratio_label_len = 4  # "100%"
+        ratio_label_left_pos = (self.BAR_WIDTH - ratio_label_len) // 2
+        ratio_label_perc_pos = ratio_label_left_pos + 3
 
-        bar_fmt_filled = f"\x1b[22;48;5;{self.PBAR_FG};38;5;16m"
-        bar_fmt_empty = f"\x1b[38;5;{self.RATIO_FG};48;5;16m"
-        bar_fmts = [bar_fmt_filled, bar_fmt_empty]
-
-        label_fmt_digits = f"\x1b[1m"
-        label_fmt_percent = f"\x1b[22;2m"
-        label_fmts = [label_fmt_digits, label_fmt_percent]
+        bar_fmts = [self.SEQ_BAR_FILLED, self.SEQ_BAR_EMPTY]
+        label_fmts = [self.SEQ_RATIO_DIGITS, self.SEQ_RATIO_PERCENT_SIGN]
 
         cursor = 0
-        result = f"\x1b[39;{self.PBAR_BORDER_FG}m" + self.BORDER_LEFT_CHAR + bar_fmts.pop(0)
+        yield self.SEQ_BAR_BORDER
+        yield self.BORDER_LEFT_CHAR
+        yield bar_fmts.pop(0)
 
-        while cursor < self.PROGRESS_BAR_WIDTH:
+        while cursor < self.BAR_WIDTH:
             if cursor >= filled_length and bar_fmts:
-                result += bar_fmts.pop(0)
-            if cursor >= ratio_label_pos:
+                yield bar_fmts.pop(0)
+            if cursor >= ratio_label_left_pos:
                 if len(label_fmts) == 2:
-                    result += label_fmts.pop(0)
+                    yield label_fmts.pop(0)
                 if cursor >= ratio_label_perc_pos and label_fmts:
-                    result += label_fmts.pop(0)
+                    yield label_fmts.pop(0)
                 if len(ratio_label):
                     cursor += 1
-                    result += ratio_label.pop(0)
+                    yield ratio_label.pop(0)
                     continue
             cursor += 1
-            result += " "
+            yield " "
 
-        result += (
-            f"\x1b[22;39;{self.PBAR_BORDER_FG}m"
-            + self.BORDER_RIGHT_CHAR
-            + f"\x1b[39;49;22;{self.FG};{self.BG}m"
-        )
-
-        return result
-
-    def _format_progress_bar_plain(self, filled_length: int) -> str:
-        empty_length = self.PROGRESS_BAR_WIDTH - filled_length
-        bar = (
-            f"\x1b[39;{self.PBAR_BORDER_FG}m"
-            + self.BORDER_LEFT_CHAR
-            + f"\x1b[{self.PBAR_FG}m"
-            + (filled_length * self.FILLED_CHAR)
-            + "\x1b[2m"
-            + (empty_length * self.EMPTY_CHAR)
-            + f"\x1b[22;39;{self.PBAR_BORDER_FG}m"
-            + self.BORDER_RIGHT_CHAR
-        )
-        return bar
+        if bar_fmts:
+            yield bar_fmts.pop(0)
+        yield self.SEQ_BAR_BORDER
+        yield self.BORDER_RIGHT_CHAR
 
 
 # thresholds: 6
