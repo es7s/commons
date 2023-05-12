@@ -21,17 +21,17 @@ class ProgressBar:
     MAX_FRAME_RATE = 4
 
     SEQ_DEFAULT = pt.SeqIndex.WHITE + pt.cv.GRAY_0.to_sgr(bg=True)
-    # SEQ_ICON = <THEME-BRIGHT-COLOR>                               # deferred
-    # SEQ_INDEX_CURRENT = <THEME-BRIGHT-COLOR> + pt.SeqIndex.BOLD   # deferred
-    # SEQ_INDEX_TOTAL = <THEME-COLOR> + pt.SeqIndex.BOLD_DIM_OFF    # deferred
+    SEQ_ICON = pt.NOOP_SEQ                        # deferred
+    SEQ_INDEX_CURRENT = pt.SeqIndex.BOLD          # deferred
+    SEQ_INDEX_TOTAL = pt.SeqIndex.BOLD_DIM_OFF    # deferred
     SEQ_INDEX_DELIM = pt.SeqIndex.WHITE + pt.SeqIndex.BOLD_DIM_OFF + pt.SeqIndex.DIM
     SEQ_LABEL_LOCAL = pt.SeqIndex.DIM
 
     SEQ_RATIO_DIGITS = pt.SeqIndex.BOLD
     SEQ_RATIO_PERCENT_SIGN = pt.SeqIndex.DIM
     SEQ_BAR_BORDER = pt.cv.GRAY_19.to_sgr(bg=False) + pt.SeqIndex.BOLD_DIM_OFF
-    SEQ_BAR_FILLED = pt.cv.GRAY_0.to_sgr(bg=False) + pt.SeqIndex.BG_MAGENTA
-    SEQ_BAR_EMPTY = pt.SeqIndex.MAGENTA + pt.cv.GRAY_0.to_sgr(bg=True)
+    SEQ_BAR_FILLED = pt.cv.GRAY_0.to_sgr(bg=False)   # deferred
+    SEQ_BAR_EMPTY = pt.cv.GRAY_0.to_sgr(bg=True)  # deferred
 
     ICON = "◆"
     FIELD_SEP = " "
@@ -44,7 +44,7 @@ class ProgressBar:
         self._enabled = False
         self._io_proxy: IoProxy | None = io_proxy
 
-        if logger.verbosity == 0:
+        if logger.verbosity_allows_progress_bar_mode:
             self._enabled = True
             io_proxy.enable_progress_bar()
 
@@ -67,9 +67,11 @@ class ProgressBar:
         theme_color = color.get_theme_color()
         theme_bright_color = color.get_theme_bright_color()
 
-        self.SEQ_ICON = theme_bright_color.to_sgr(bg=False)
-        self.SEQ_INDEX_CURRENT = theme_bright_color.to_sgr(bg=False) + pt.SeqIndex.BOLD
-        self.SEQ_INDEX_TOTAL = theme_color.to_sgr(bg=False) + pt.SeqIndex.BOLD_DIM_OFF
+        self.SEQ_ICON += theme_bright_color.to_sgr(bg=False)
+        self.SEQ_INDEX_CURRENT += theme_bright_color.to_sgr(bg=False) + pt.SeqIndex.BOLD
+        self.SEQ_INDEX_TOTAL += theme_color.to_sgr(bg=False) + pt.SeqIndex.BOLD_DIM_OFF
+        self.SEQ_BAR_FILLED += theme_color.to_sgr(bg=True)  # pt.SeqIndex.BG_MAGENTA
+        self.SEQ_BAR_EMPTY += theme_color.to_sgr(bg=False)  # pt.SeqIndex.MAGENTA
 
 
     def setup(
