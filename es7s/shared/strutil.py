@@ -28,7 +28,7 @@ def to_subscript(s: str) -> str:
 
 
 # @todo to pytermor
-def cut(s: str, max_len: int, align='<', overflow='…'):
+def fit(s: str, max_len: int, align='<', overflow='…'):
     max_len = max(0, max_len)
     if max_len <= (ov_len := len(overflow)):
         return overflow[:max_len]
@@ -47,3 +47,8 @@ def cut(s: str, max_len: int, align='<', overflow='…'):
         return s[:left_part] + overflow + s[-right_part:]
     raise ValueError(f"Invalid align, expected '<'|'>'|'^', got '{align}'")
 
+
+def cut(s: str, max_len: int, align='<', overflow='…'):
+    if len(s) <= max_len:
+        return s
+    return fit(s, max_len, align, overflow)

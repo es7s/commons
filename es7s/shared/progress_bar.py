@@ -8,11 +8,12 @@ import typing
 from functools import reduce
 
 import pytermor as pt
+from pytermor import SeqIndex as sqx
 
 from es7s.cli._terminal_state import TerminalStateController
-from es7s.shared import get_color, IoProxy, get_logger, get_stdout, Logger
+from es7s.shared import get_color, IoProxy, Logger
 from es7s.shared.exception import NotInitializedError
-from es7s.shared.strutil import cut
+from es7s.shared.strutil import fit
 
 
 # @todo to pytermor
@@ -20,23 +21,22 @@ class ProgressBar:
     BAR_WIDTH = 5
     MAX_FRAME_RATE = 4
 
-    SEQ_DEFAULT = pt.SeqIndex.WHITE + pt.cv.GRAY_0.to_sgr(bg=True)
-    SEQ_ICON = pt.NOOP_SEQ                        # deferred
-    SEQ_INDEX_CURRENT = pt.SeqIndex.BOLD          # deferred
-    SEQ_INDEX_TOTAL = pt.SeqIndex.BOLD_DIM_OFF    # deferred
-    SEQ_INDEX_DELIM = pt.SeqIndex.WHITE + pt.SeqIndex.BOLD_DIM_OFF + pt.SeqIndex.DIM
-    SEQ_LABEL_LOCAL = pt.SeqIndex.DIM
+    SEQ_DEFAULT = sqx.WHITE + pt.cv.GRAY_0.to_sgr(bg=True)
+    SEQ_ICON = pt.NOOP_SEQ                # deferred
+    SEQ_INDEX_CURRENT = sqx.BOLD          # deferred
+    SEQ_INDEX_TOTAL = pt.NOOP_SEQ
+    SEQ_INDEX_DELIM = sqx.COLOR_OFF + sqx.BOLD_DIM_OFF + sqx.DIM
+    SEQ_LABEL_LOCAL = sqx.DIM
 
-    SEQ_RATIO_DIGITS = pt.SeqIndex.BOLD
-    SEQ_RATIO_PERCENT_SIGN = pt.SeqIndex.DIM
-    SEQ_BAR_BORDER = pt.cv.GRAY_19.to_sgr(bg=False) + pt.SeqIndex.BOLD_DIM_OFF
+    SEQ_RATIO_DIGITS = sqx.BOLD
+    SEQ_RATIO_PERCENT_SIGN = sqx.DIM
+    SEQ_BAR_BORDER = pt.cv.GRAY_19.to_sgr(bg=False) + sqx.BOLD_DIM_OFF
     SEQ_BAR_FILLED = pt.cv.GRAY_0.to_sgr(bg=False)   # deferred
     SEQ_BAR_EMPTY = pt.cv.GRAY_0.to_sgr(bg=True)  # deferred
 
-    ICON = "◆"
     FIELD_SEP = " "
+    ICON = "◆"
     INDEX_DELIM = "/"
-
     BORDER_LEFT_CHAR = "▕"
     BORDER_RIGHT_CHAR = "▏"
 
@@ -68,10 +68,9 @@ class ProgressBar:
         theme_bright_color = color.get_theme_bright_color()
 
         self.SEQ_ICON += theme_bright_color.to_sgr(bg=False)
-        self.SEQ_INDEX_CURRENT += theme_bright_color.to_sgr(bg=False) + pt.SeqIndex.BOLD
-        self.SEQ_INDEX_TOTAL += theme_color.to_sgr(bg=False) + pt.SeqIndex.BOLD_DIM_OFF
-        self.SEQ_BAR_FILLED += theme_color.to_sgr(bg=True)  # pt.SeqIndex.BG_MAGENTA
-        self.SEQ_BAR_EMPTY += theme_color.to_sgr(bg=False)  # pt.SeqIndex.MAGENTA
+        self.SEQ_INDEX_CURRENT += theme_bright_color.to_sgr(bg=False) + sqx.BOLD
+        self.SEQ_BAR_FILLED += theme_color.to_sgr(bg=True)  # sqx.BG_MAGENTA
+        self.SEQ_BAR_EMPTY += theme_color.to_sgr(bg=False)  # sqx.MAGENTA
 
 
     def setup(
@@ -95,7 +94,7 @@ class ProgressBar:
 
     def _compute_max_label_len(self):
         self._last_term_width_query_ts = time.time()
-        self._max_label_len = pt.get_terminal_width() - (8 + self.BAR_WIDTH + 2 * self._get_max_threshold_idx_len())
+        self._max_label_len = pt.get_terminal_width() - (7 + len(self.ICON) + self.BAR_WIDTH + 2 + 2 * self._get_max_threshold_idx_len())
 
     def _get_max_threshold_idx_len(self) -> int:
         return len(str(len(self._thresholds) - 1))
@@ -179,32 +178,35 @@ class ProgressBar:
             self._last_redraw_ts = now
             self._icon_frame += 1
         icon = [self.ICON, " "][self._icon_frame % 2]
-        ratio = self._get_ratio()
+        ratio = self._ratio_local   # self._get_ratio()
 
         idx = self._get_threshold_for_idx()
         max_idx_len = self._get_max_threshold_idx_len()
-        label = self._label_thr
-        if self._label_local:
-            label += " :: " + self._label_local
+        # expand right label to max minus (initial) left
+        label_right = fit(self._label_local, self._max_label_len - 2 - len(self._label_thr), '>')
+        label_left = self._label_thr
 
-        result_icon = f"{self.SEQ_DEFAULT}{self.SEQ_ICON} {icon} "
+        result_ratio_bar = self._format_ratio_bar(ratio)
         result_index = (
+            f"{self.SEQ_DEFAULT}"
+            f"{self.SEQ_ICON}{icon} "
             f"{self.SEQ_INDEX_CURRENT}{idx:>{max_idx_len}d}"
             f"{self.SEQ_INDEX_DELIM}{self.INDEX_DELIM}"
             f"{self.SEQ_INDEX_TOTAL}{len(self._thresholds) - 1:<d}"
         )
-        result_ratio_bar = self._format_ratio_bar(ratio)
-        result_label = f"{self.SEQ_DEFAULT}{self.FIELD_SEP}" + cut(label, self._max_label_len)
+        result_label = f'{self.SEQ_DEFAULT}{label_left}  {self.SEQ_LABEL_LOCAL}{label_right}'
 
         result = reduce(
             lambda t, s: str(t) + str(s),
             [
-                result_icon,
+                self.SEQ_DEFAULT,
                 self.FIELD_SEP,
                 result_index,
                 self.FIELD_SEP,
                 *result_ratio_bar,
+                self.FIELD_SEP,
                 result_label,
+                sqx.RESET,
             ],
         )
         self._io_proxy.echo_progress_bar(result)
@@ -214,6 +216,9 @@ class ProgressBar:
             return
         self._thr_finished = True
         self._set_threshold(len(self._thresholds) - 1)
+        if self._enabled:
+            self._io_proxy.disable_progress_bar()
+            self._enabled = False
 
     def _format_ratio_bar(self, ratio: float) -> typing.Iterable[str]:
         filled_length = math.floor(ratio * self.BAR_WIDTH)
