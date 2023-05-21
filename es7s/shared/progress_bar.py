@@ -9,6 +9,7 @@ from functools import reduce
 
 import pytermor as pt
 from pytermor import SeqIndex as sqx
+from pytermor import ColorTarget as ct
 
 from es7s.cli._terminal_state import TerminalStateController
 from es7s.shared import get_color, IoProxy, Logger
@@ -21,7 +22,7 @@ class ProgressBar:
     BAR_WIDTH = 5
     MAX_FRAME_RATE = 4
 
-    SEQ_DEFAULT = sqx.WHITE + pt.cv.GRAY_0.to_sgr(bg=True)
+    SEQ_DEFAULT = sqx.WHITE + pt.cv.GRAY_0.to_sgr(ct.BG)
     SEQ_ICON = pt.NOOP_SEQ                # deferred
     SEQ_INDEX_CURRENT = sqx.BOLD          # deferred
     SEQ_INDEX_TOTAL = pt.NOOP_SEQ
@@ -30,9 +31,9 @@ class ProgressBar:
 
     SEQ_RATIO_DIGITS = sqx.BOLD
     SEQ_RATIO_PERCENT_SIGN = sqx.DIM
-    SEQ_BAR_BORDER = pt.cv.GRAY_19.to_sgr(bg=False) + sqx.BOLD_DIM_OFF
-    SEQ_BAR_FILLED = pt.cv.GRAY_0.to_sgr(bg=False)   # deferred
-    SEQ_BAR_EMPTY = pt.cv.GRAY_0.to_sgr(bg=True)  # deferred
+    SEQ_BAR_BORDER = pt.cv.GRAY_19.to_sgr(ct.FG) + sqx.BOLD_DIM_OFF
+    SEQ_BAR_FILLED = pt.cv.GRAY_0.to_sgr(ct.FG)   # deferred
+    SEQ_BAR_EMPTY = pt.cv.GRAY_0.to_sgr(ct.BG)  # deferred
 
     FIELD_SEP = " "
     ICON = "◆"
@@ -67,10 +68,10 @@ class ProgressBar:
         theme_color = color.get_theme_color()
         theme_bright_color = color.get_theme_bright_color()
 
-        self.SEQ_ICON += theme_bright_color.to_sgr(bg=False)
-        self.SEQ_INDEX_CURRENT += theme_bright_color.to_sgr(bg=False) + sqx.BOLD
-        self.SEQ_BAR_FILLED += theme_color.to_sgr(bg=True)  # sqx.BG_MAGENTA
-        self.SEQ_BAR_EMPTY += theme_color.to_sgr(bg=False)  # sqx.MAGENTA
+        self.SEQ_ICON += theme_bright_color.to_sgr(ct.FG)
+        self.SEQ_INDEX_CURRENT += theme_bright_color.to_sgr(ct.FG) + sqx.BOLD
+        self.SEQ_BAR_FILLED += theme_color.to_sgr(ct.BG)  # sqx.BG_MAGENTA
+        self.SEQ_BAR_EMPTY += theme_color.to_sgr(ct.FG)  # sqx.MAGENTA
 
 
     def setup(
@@ -183,7 +184,7 @@ class ProgressBar:
         idx = self._get_threshold_for_idx()
         max_idx_len = self._get_max_threshold_idx_len()
         # expand right label to max minus (initial) left
-        label_right = fit(self._label_local, self._max_label_len - 2 - len(self._label_thr), '>')
+        label_right = fit(self._label_local, self._max_label_len - 2 - len(self._label_thr), '<')
         label_left = self._label_thr
 
         result_ratio_bar = self._format_ratio_bar(ratio)
