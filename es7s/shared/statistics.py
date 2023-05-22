@@ -2,7 +2,8 @@
 #  es7s/core
 #  (c) 2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
-
+import typing as t
+import math
 def percentile(
     N: t.Sequence[float], percent: float, key: t.Callable[[float], float] = lambda x: x
 ) -> float:
