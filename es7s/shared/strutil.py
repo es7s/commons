@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import pytermor as pt
-from pytermor.filter import PTT
 
 SUBSCRIPT_TRANS = str.maketrans(
     {
@@ -44,5 +43,5 @@ class NamedGroupsRefilter(pt.AbstractNamedGroupsRefilter):
 
 
 class RegexValRefilter(NamedGroupsRefilter):
-    def __init__(self, pattern: PTT[str], val_st: pt.FT):
+    def __init__(self, pattern: pt.filter.PTT[str], val_st: pt.FT):
         super().__init__(pattern, {'val': val_st})
