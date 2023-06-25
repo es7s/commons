@@ -44,7 +44,7 @@ class ProgressBar:
         self._enabled = False
         self._io_proxy: IoProxy | None = io_proxy
 
-        if logger.verbosity_allows_progress_bar_mode:
+        if logger.setup.progress_bar_mode_allowed:
             self._enabled = True
             io_proxy.enable_progress_bar()
 
