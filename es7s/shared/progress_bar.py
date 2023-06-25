@@ -14,7 +14,6 @@ from pytermor import ColorTarget as ct
 from es7s.cli._terminal_state import TerminalStateController
 from es7s.shared import get_color, IoProxy, Logger
 from es7s.shared.exception import NotInitializedError
-from es7s.shared.strutil import fit
 
 
 # @todo to pytermor
@@ -45,7 +44,7 @@ class ProgressBar:
         self._enabled = False
         self._io_proxy: IoProxy | None = io_proxy
 
-        if logger.verbosity_allows_progress_bar_mode:
+        if logger.setup.progress_bar_mode_allowed:
             self._enabled = True
             io_proxy.enable_progress_bar()
 
@@ -184,7 +183,7 @@ class ProgressBar:
         idx = self._get_threshold_for_idx()
         max_idx_len = self._get_max_threshold_idx_len()
         # expand right label to max minus (initial) left
-        label_right = fit(self._label_local, self._max_label_len - 2 - len(self._label_thr), '<')
+        label_right = pt.fit(self._label_local, self._max_label_len - 2 - len(self._label_thr), '<')
         label_left = self._label_thr
 
         result_ratio_bar = self._format_ratio_bar(ratio)
