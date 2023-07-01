@@ -13,7 +13,7 @@ from pytermor import ColorTarget as ct
 
 from es7s.cli._terminal_state import TerminalStateController
 from es7s.shared import get_color, IoProxy, Logger
-from es7s.shared.exception import NotInitializedError
+from es7s.shared import NotInitializedError
 
 
 # @todo to pytermor
