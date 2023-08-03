@@ -26,13 +26,23 @@ class Transmap(dict[int, str]):
 
 
 SUBSCRIPT_TRANS = Transmap(
+    # missing: "bcdfgqwyz" and all capitals
     "0123456789+-=()aehijklmnoprstuvx",
     "₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ",
+)
+SUPERSCRIPT_TRANS = Transmap(
+    # missing: "SXYZ"
+    "0123456789+-=()abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTUVW",
+    "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖ𐞥ʳˢᵗᵘᵛʷˣʸᶻᴬᴮꟲᴰᴱfᴳᴴᴵᴶᴷᴸᴹᴺᴼᴾꟴᴿᵀᵁⱽᵂ",
 )
 
 
 def to_subscript(s: str, *, strict: bool = False) -> str:
     return SUBSCRIPT_TRANS.translate(s.lower(), strict=strict)
+
+
+def to_superscript(s: str, *, strict: bool = False) -> str:
+    return SUPERSCRIPT_TRANS.translate(s.lower(), strict=strict)
 
 
 class NamedGroupsRefilter(pt.AbstractNamedGroupsRefilter):

@@ -11,7 +11,7 @@ import pytermor as pt
 from pytermor import SeqIndex as sqx
 from pytermor import ColorTarget as ct
 
-from es7s.cli._terminal_state import TerminalStateController
+from es7s.cli.terminal_state import TerminalStateController
 from es7s.shared import get_color, IoProxy, Logger
 from es7s.shared import NotInitializedError
 
@@ -274,3 +274,21 @@ class ProgressBar:
 # post-5 pre-6    task 5      5/6      83%           5
 # post-6          task 6      6/6     100%           6
 #
+
+
+def get_partial_hblock(val: float) -> str:
+    if val >= 7 / 8:
+        return "▉"
+    elif val >= 6 / 8:
+        return "▊"
+    elif val >= 5 / 8:
+        return "▋"
+    elif val >= 4 / 8:
+        return "▌"
+    elif val >= 3 / 8:
+        return "▍"
+    elif val >= 2 / 8:
+        return "▎"
+    elif val >= 1 / 8:
+        return "▏"
+    return ""
