@@ -45,6 +45,10 @@ def to_superscript(s: str, *, strict: bool = False) -> str:
     return SUPERSCRIPT_TRANS.translate(s.lower(), strict=strict)
 
 
+def re_unescape(s: str) -> str:
+    return s.replace('\\', '')
+
+
 class NamedGroupsRefilter(pt.AbstractNamedGroupsRefilter):
     def _get_renderer(self) -> pt.IRenderer:
         from es7s.shared import get_stdout
