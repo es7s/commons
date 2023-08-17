@@ -4,7 +4,26 @@
 # ------------------------------------------------------------------------------
 from __future__ import annotations
 
+import re
+import textwrap
+import typing as t
+
 import pytermor as pt
+
+
+class NamedGroupsRefilter(pt.AbstractNamedGroupsRefilter):
+    def _get_renderer(self) -> pt.IRenderer:
+        from es7s.shared import get_stdout
+
+        return get_stdout().renderer
+
+    def _render(self, v: pt.RT, st: pt.FT) -> str:
+        return self._get_renderer().render(v, st)
+
+
+class RegexValRefilter(NamedGroupsRefilter):
+    def __init__(self, pattern: pt.filter.PTT[str], val_st: pt.FT):
+        super().__init__(pattern, {"val": val_st})
 
 
 class Transmap(dict[int, str]):
@@ -30,6 +49,8 @@ SUBSCRIPT_TRANS = Transmap(
     "0123456789+-=()aehijklmnoprstuvx",
     "₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ",
 )
+
+
 SUPERSCRIPT_TRANS = Transmap(
     # missing: "SXYZ"
     "0123456789+-=()abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTUVW",
@@ -46,19 +67,45 @@ def to_superscript(s: str, *, strict: bool = False) -> str:
 
 
 def re_unescape(s: str) -> str:
-    return s.replace('\\', '')
+    return s.replace("\\", "")
 
-
-class NamedGroupsRefilter(pt.AbstractNamedGroupsRefilter):
-    def _get_renderer(self) -> pt.IRenderer:
-        from es7s.shared import get_stdout
-
-        return get_stdout().renderer
-
-    def _render(self, v: pt.RT, st: pt.FT) -> str:
-        return self._get_renderer().render(v, st)
-
-
-class RegexValRefilter(NamedGroupsRefilter):
-    def __init__(self, pattern: pt.filter.PTT[str], val_st: pt.FT):
-        super().__init__(pattern, {"val": val_st})
+#
+# def wrap_sgr(
+#     rendered: str | list[str],
+#     width: int,
+#     indent_first: int = 0,
+#     indent_subseq: int = 0,
+# ) -> str:
+#     # modified to handle ⏺ lists offsets
+#
+#     sgrs: list[str] = []
+#
+#     def push(m: t.Match):
+#         sgrs.append(m.group())
+#         return pt.text._PRIVATE_REPLACER
+#
+#     if isinstance(rendered, str):  # input can be just one paragraph
+#         rendered = [rendered]
+#
+#     inp = "\n\n".join(rendered).split("\n\n")
+#     result = ""
+#     for raw_line in inp:
+#         # had an inspiration and wrote it; no idea how does it work exactly, it just does
+#         replaced_line = re.sub(r"(\s?\S?)((\x1b\[([0-9;]*)m)+)", push, raw_line)
+#         if replaced_line.lstrip().startswith("⏺"):
+#             cur_indent_first = indent_first
+#             cur_indent_subseq = indent_subseq + 2
+#         else:
+#             cur_indent_first = indent_first
+#             cur_indent_subseq = indent_subseq
+#         wrapped_line = f"\n".join(
+#             textwrap.wrap(
+#                 replaced_line,
+#                 width=width,
+#                 initial_indent=(cur_indent_first * " "),
+#                 subsequent_indent=(cur_indent_subseq * " "),
+#             )
+#         )
+#         final_line = re.sub(pt.text._PRIVATE_REPLACER, lambda _: sgrs.pop(0), wrapped_line)
+#         result += final_line + "\n"
+#     return result
