@@ -2,10 +2,14 @@
 #  es7s/core
 #  (c) 2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
-import typing as t
 import math
+import typing as t
+
+
 def percentile(
-    N: t.Sequence[float], percent: float, key: t.Callable[[float], float] = lambda x: x
+    N: t.Sequence[float],
+    percent: float,
+    key: t.Callable[[float], float] = lambda x: x,
 ) -> float:
     """
     Find the percentile of a list of values.
@@ -28,7 +32,10 @@ def percentile(
     return d0 + d1
 
 
-def median(N: t.Sequence[float], key: t.Callable[[float], float] = lambda x: x) -> float:
+def median(
+    N: t.Sequence[float],
+    key: t.Callable[[float], float] = lambda x: x,
+) -> float:
     """
     Find the median of a list of values.
     Wrapper around `percentile()` with fixed ``percent`` argument (=0.5).
@@ -37,5 +44,3 @@ def median(N: t.Sequence[float], key: t.Callable[[float], float] = lambda x: x) 
     :param key:  Optional key function to compute value from each element of N.
     """
     return percentile(N, percent=0.5, key=key)
-
-

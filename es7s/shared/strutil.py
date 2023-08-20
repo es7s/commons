@@ -4,10 +4,6 @@
 # ------------------------------------------------------------------------------
 from __future__ import annotations
 
-import re
-import textwrap
-import typing as t
-
 import pytermor as pt
 
 

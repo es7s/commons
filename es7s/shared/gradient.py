@@ -8,7 +8,10 @@ from typing import TypeVar
 
 from pytermor import RGB
 
-from es7s.shared import get_logger
+from .log import get_logger
+
+
+_T = TypeVar("_T")
 
 
 @dataclass(frozen=True)
@@ -80,16 +83,13 @@ class IGradientReader(metaclass=ABCMeta):
         ...
 
 
-T = TypeVar("T")
-
-
-class deque_ext(typing.Generic[T], deque):
-    def mpop(self, amount: int = 1) -> Iterable[T]:
+class deque_ext(typing.Generic[_T], deque):
+    def mpop(self, amount: int = 1) -> Iterable[_T]:
         while len(self) and amount:
             amount -= 1
             yield self.pop()
 
-    def mpopleft(self, amount: int = 1) -> Iterable[T]:
+    def mpopleft(self, amount: int = 1) -> Iterable[_T]:
         while len(self) and amount:
             amount -= 1
             yield self.popleft()

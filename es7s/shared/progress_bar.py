@@ -8,12 +8,14 @@ import typing
 from functools import reduce
 
 import pytermor as pt
-from pytermor import SeqIndex as sqx
 from pytermor import ColorTarget as ct
+from pytermor import SeqIndex as sqx
 
-from es7s.cli.terminal_state import TerminalStateController
-from es7s.shared import get_color, IoProxy, Logger
-from es7s.shared import NotInitializedError
+from .color import get_color
+from .exception import NotInitializedError
+from .io_ import IoProxy
+from .log import Logger
+from .termstatectl import TerminalStateController
 
 
 # @todo to pytermor

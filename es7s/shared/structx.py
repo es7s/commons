@@ -24,14 +24,14 @@ class DoublyLinkedNode:
         return self._next
 
 
-DNT = t.TypeVar("DNT", bound=DoublyLinkedNode)
+_DNT = t.TypeVar("_DNT", bound=DoublyLinkedNode)
 
 
-class RingList(t.Generic[DNT]):
+class RingList(t.Generic[_DNT]):
     def __init__(self):
-        self._any: DNT | None = None   # rings do not have a head or tail
+        self._any: _DNT | None = None   # rings do not have a head or tail
 
-    def insert(self, target: DNT):
+    def insert(self, target: _DNT):
         if not self._any:
             target.connect(target)          # single ring element is linked
             self._any = target              # with itself on both sides
@@ -40,7 +40,7 @@ class RingList(t.Generic[DNT]):
             self._any.connect(target)       # new element into created gap
             self._any = target
 
-    def remove(self, target: DNT):
+    def remove(self, target: _DNT):
         for el in self:
             if el == target:
                 el.prev.connect(el.next)
@@ -55,7 +55,7 @@ class RingList(t.Generic[DNT]):
     def __len__(self) -> int:
         return len([_ for _ in self])
 
-    def __iter__(self) -> t.Iterator[DNT]:
+    def __iter__(self) -> t.Iterator[_DNT]:
         if (ptr := self._any) is None:
             return
         while True:                  # iterate from the entrypoint
