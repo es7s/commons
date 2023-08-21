@@ -74,7 +74,6 @@ class ProgressBar:
         self.SEQ_BAR_FILLED += theme_color.to_sgr(ct.BG)  # sqx.BG_MAGENTA
         self.SEQ_BAR_EMPTY += theme_color.to_sgr(ct.FG)  # sqx.MAGENTA
 
-
     def setup(
         self,
         threshold_count: int = None,
