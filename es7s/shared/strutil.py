@@ -59,7 +59,7 @@ def to_subscript(s: str, *, strict: bool = False) -> str:
 
 
 def to_superscript(s: str, *, strict: bool = False) -> str:
-    return SUPERSCRIPT_TRANS.translate(s.lower(), strict=strict)
+    return SUPERSCRIPT_TRANS.translate(s, strict=strict)
 
 
 def re_unescape(s: str) -> str:
