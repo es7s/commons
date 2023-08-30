@@ -26,4 +26,17 @@ def countindex(
 
 
 filterf = partial(filter, None)
-""" Shortcut for filtering out falsy values. """
+""" Shortcut for filtering out falsy values from sequences """
+
+filtern = partial(filter, lambda v: v is not None)
+""" Shortcut for filtering out Nones from sequences """
+
+
+def filterfv(mapping: dict) -> dict:
+    """ Shortcut for filtering out falsy values from mappings """
+    return dict(filter(None, mapping.items()))
+
+
+def filternv(mapping: dict) -> dict:
+    """ Shortcut for filtering out Nones from mappings """
+    return dict(filter(lambda kv: kv[1] is not None, mapping.items()))

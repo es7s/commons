@@ -2,7 +2,7 @@
 #  es7s/core
 #  (c) 2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
-
+import enum
 import sys
 import typing as t
 
@@ -10,6 +10,12 @@ import pytermor as pt
 
 from .io_ import IoProxy, get_stdout
 from .log import get_logger
+
+
+class TerminalInputMode(str, pt.ExtendedEnum):  # @TODO str enums will be available in python 3.11
+    DEFAULT: str = 'default'
+    DISABLED: str = 'disabled'
+    DISCRETE: str = 'discrete'
 
 
 class TerminalStateController:
@@ -40,6 +46,17 @@ class TerminalStateController:
     def show_cursor(self):
         self._remove_restore_callback(self.show_cursor)
         self._send_sequence(pt.make_show_cursor)
+
+    def setup_input(self, input_mode: TerminalInputMode):
+        match input_mode:
+            case TerminalInputMode.DEFAULT:
+                self.restore_input()
+            case TerminalInputMode.DISABLED:
+                self.disable_input()
+            case TerminalInputMode.DISCRETE:
+                self.discrete_input()
+            case _:
+                raise NotImplementedError(f"Unknown input mode: {input_mode}")
 
     def disable_input(self):
         get_logger().debug(f"TSC: Putting tty into cbreak mode: {sys.stdin}")
@@ -91,7 +108,7 @@ class TerminalStateController:
             get_logger().warning(f"TSC: Restoring tty attributes skipped: not a tty")
             return
         if not self._terminal_orig_settings:
-            get_logger().warning(f"TSC: Restoring tty attributes skipped: empty settings")
+            get_logger().warning(f"TSC: Restoring tty attributes skipped: nothing to restore")
             return
 
         get_logger().debug(f"TSC: Restoring tty attributes: {self._terminal_orig_settings}")
@@ -141,7 +158,7 @@ class TerminalStateController:
                 "TSC: ENABLED ALT SCREEN BUFFER: ALL STDERR LOG MESSAGES ARE NOW _IGNORED_ BY THE "
                 "TERMINAL (syslog should still work unless switched off explicitly)"
             )
-        self._io_proxy.echo(sequence)
+        self._io_proxy.echo(sequence, bypass=True)  # do not allow to intercept and buffer these
 
     def _is_a_tty(self):
         return self._io_proxy.io.isatty()
