@@ -3,7 +3,7 @@ import typing
 from abc import ABCMeta, abstractmethod
 from collections import deque
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import TypeVar
 
 from pytermor import RGB
@@ -46,11 +46,11 @@ class GradientSegment:
     def _interpolate_2p(self, p_left: GradientPoint, p_right: GradientPoint, pos: float) -> RGB:
         pos_rel = self._pos_to_relative(p_left.pos, p_right.pos, pos)
         rgba_vals = dict()
-        for k in asdict(RGB(0,0,0)).keys():
+        for k in ('red', 'green', 'blue'):
             v_left = getattr(p_left.col, k)
             v_right = getattr(p_right.col, k)
             rgba_vals[k] = pos_rel * (v_right - v_left) + v_left
-        return RGB(**rgba_vals).apply_thresholds()
+        return RGB.from_channels(**rgba_vals)
 
     def _pos_to_relative(self, pos1: float, pos2: float, pos_target: float) -> float:
         return (pos_target - pos1) / (pos2 - pos1)
@@ -66,7 +66,7 @@ class Gradient:
 
     def interpolate(self, pos: float) -> RGB:
         if not self._segments:
-            return RGB(0, 0, 0)
+            return RGB(0)
         idx = 0
         seg = self._segments[0]
         while idx < len(self._segments):
@@ -118,9 +118,9 @@ class GimpGradientReader(IGradientReader):
             seg_f = deque_ext(map(float, seg_raw))
 
             seg_pos = [*seg_f.mpopleft(3)]
-            seg_col_left = RGB(*seg_f.mpopleft(3))
+            seg_col_left = RGB.from_channels(*seg_f.mpopleft(3))
             seg_f.popleft()  # alpha channel value (left)
-            seg_col_right = RGB(*seg_f.mpopleft(3))
+            seg_col_right = RGB.from_channels(*seg_f.mpopleft(3))
             seg_f.popleft()  # alpha channel value (right)
             seg = GradientSegment(
                 [*seg_pos],
