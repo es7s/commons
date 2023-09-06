@@ -15,7 +15,7 @@ from .theme import ThemeColor
 
 
 class DummyProgressBar:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *_, **__):
         self._label = ""
         self._count = 0
 
@@ -165,16 +165,21 @@ class ProgressBar:
         icon = self._format_icon()
         task_state = [*self._format_task_state()]
 
+        field_sep = self._field_sep_nobg
+        if self._io_proxy.renderer.is_format_allowed:
+            field_sep = self._field_sep
+        else:
+            icon = ''
+
         result = self._io_proxy.render(
             pt.Composite(
-                self._field_sep,
+                field_sep,
                 icon,
-                self._field_sep,
+                field_sep,
                 *task_state,
-                self._field_sep,
+                field_sep,
                 *self._format_ratio_bar(task_ratio),
-                pt.SeqIndex.BOLD_DIM_OFF.assemble(),
-                self._field_sep,
+                field_sep,
                 *self._format_labels(),
             )
         )
@@ -259,7 +264,9 @@ class ProgressBar:
             raise _FrameAlreadyRendered
 
     def _should_persist(self) -> bool:
-        return time.time() - self._io_proxy.last_persist_ts() >= self.PERSIST_MIN_INTERVAL_SEC
+        if last_persist := self._io_proxy.last_persist_ts():
+            return time.time() - last_persist >= self.PERSIST_MIN_INTERVAL_SEC
+        return False
 
     def _format_ratio_bar(self, ratio: float) -> typing.Iterable[str | pt.Fragment]:
         filled_length = math.floor(ratio * self.BAR_WIDTH)
@@ -269,6 +276,10 @@ class ProgressBar:
         ratio_label_perc_pos = ratio_label_left_pos + 3
 
         ren = self._io_proxy.renderer
+        if not ren.is_format_allowed:
+            yield ''.join(ratio_label)
+            return
+
         bar_styles = [
             ren.render("\x00", Styles.BAR_FILLED).split("\x00", 1)[0],
             pt.SeqIndex.INVERSED.assemble(),
@@ -301,6 +312,7 @@ class ProgressBar:
             yield bar_styles.pop()
         yield pt.SeqIndex.INVERSED_OFF.assemble()
         yield pt.Fragment(self.BORDER_RIGHT_CHAR, Styles.BAR_BORDER)
+        yield pt.SeqIndex.BOLD_DIM_OFF.assemble()
 
     def _format_icon(self) -> pt.Fragment:
         icon = (self.ICON, " ")[self._icon_frame % 2]
@@ -327,6 +339,9 @@ class ProgressBar:
             self._max_label_len - self.LABEL_PAD * 2 - len(task_label) - len(step_num),
             "<",
         )
+        if not self._io_proxy.renderer.is_format_allowed:
+            yield from [step_num, task_label, pt.pad(self.LABEL_PAD), label_right_text]
+            return
         yield pt.Fragment(f"{pt.SeqIndex.DIM}{step_num}")
         yield pt.Fragment(f"{pt.SeqIndex.BOLD_DIM_OFF}{task_label}{pt.pad(self.LABEL_PAD)}")
         yield pt.Fragment(f"{pt.SeqIndex.DIM}{label_right_text}")
