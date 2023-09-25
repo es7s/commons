@@ -14,8 +14,8 @@ from pytermor import filtern, FT
 from .log import get_logger
 
 
-def joincoal(*arg: any) -> str:
-    return ''.join(map(str, filtern(arg)))
+def joincoal(*arg: any, sep='') -> str:
+    return sep.join(map(str, filtern(arg)))
 
 
 class DisposableComposite(pt.Composite):
