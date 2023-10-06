@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import typing as t
 from collections import deque
+from functools import partial
 from math import ceil
 
 import pytermor as pt
@@ -16,6 +17,19 @@ from .log import get_logger
 
 def joincoal(*arg: any, sep='') -> str:
     return sep.join(map(str, filtern(arg)))
+
+
+isempty = lambda v: bool(v) and len(str(v).strip())
+
+
+filtere = partial(filter, isempty)
+""" Shortcut for filtering out falsy AND empty values from sequences """
+
+
+def filterev(mapping: dict) -> dict:
+    """ Shortcut for filtering out falsy AND empty values from mappings """
+    return dict(filter(lambda kv: isempty(kv[1]), mapping.items()))
+
 
 
 class DisposableComposite(pt.Composite):
