@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import operator
 import re
+import time
 from functools import reduce
 
 import math
@@ -95,3 +96,7 @@ def median(
     :param key:  Optional key function to compute value from each element of N.
     """
     return percentile(N, percent=0.5, key=key)
+
+
+def now() -> int:
+    return int(time.time())

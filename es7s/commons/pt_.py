@@ -4,15 +4,18 @@
 # ------------------------------------------------------------------------------
 from __future__ import annotations
 
+import io
+import os
 import typing as t
 from collections import deque
 from functools import partial
+from logging import getLogger
 from math import ceil
+from pathlib import Path
 
+import click
 import pytermor as pt
 from pytermor import filtern, FT
-
-from .log import get_logger
 
 
 def joincoal(*arg: any, sep='') -> str:
@@ -164,7 +167,7 @@ class CompositeCompressor(pt.Composite):
             break  # от греха
 
     def _debug_compress_level(self, level: str):
-        get_logger().trace(f"Level {level} compression applied: length {len(self)}")
+        getLogger(__package__).debug(f"Level {level} compression applied: length {len(self)}")
 
     def _purge(self, disposables: list[_DC], req_delta: int, max_purge: int):
         if req_delta - max_purge > 0:
@@ -201,3 +204,40 @@ class CompositeCompressor(pt.Composite):
     def _eviscerate(self, max_len: int):
         while len(self) > max_len and len(self._parts):
             self._parts.pop()
+
+
+def format_attrs(*o: object, keep_classname=True, level=0, flat=False) -> str:
+    def _to_str(a) -> str:
+        if (s := str(a)).startswith(cn := a.__class__.__name__):
+            if keep_classname:
+                return s
+            return s.removeprefix(cn)
+        return f"'{s}'" if s.count(" ") else s
+
+    def _wrap(s):
+        if flat:
+            return s
+        return f"({s})"
+
+    if len(o) == 1:
+        o = o[0]
+    if isinstance(o, str):
+        return o
+    elif isinstance(o, t.Mapping):
+        return _wrap(" ".join(f"{_to_str(k)}={format_attrs(v, flat=flat)}" for k, v in o.items()))
+    elif issubclass(type(o), (io.IOBase, click.utils.LazyFile)):
+        return f"{pt.get_qname(o)}['{getattr(o, 'name', '?')}', {getattr(o, 'mode', '?')}]"
+    elif isinstance(o, t.Iterable):
+        return _wrap(" ".join(format_attrs(v, level=level + 1, flat=flat) for v in o))
+    return _to_str(o)
+
+
+def format_path(path: str | Path, *, color=False, repr=True) -> str | pt.RT:
+    fmt = "{!r}" if repr else "{:s}"
+    apath = os.path.abspath(str(path))
+    result = pt.Text(fmt.format(apath), pt.cv.BLUE)
+    if (rpath := os.path.realpath(apath)) != apath:
+        result += " -> " + pt.Fragment(fmt.format(rpath), pt.cv.YELLOW)
+    if not color:
+        result = result.raw()
+    return result
