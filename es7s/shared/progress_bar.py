@@ -12,7 +12,7 @@ from .io_ import IoProxy, get_stderr
 from .log import Logger
 from .styles import Styles as BaseStyles, FrozenStyle
 from .theme import ThemeColor
-
+from es7s.commons import get_partial_hblock
 
 class DummyProgressBar:
     def __init__(self, *_, **__):
@@ -375,24 +375,6 @@ class ProgressBar:
 #         left = self._get_ratio_global()
 #         right = self._get_next_ratio_global()
 #         return left + self._ratio_local * (right - left)
-
-
-def get_partial_hblock(val: float) -> str:
-    if val >= 7 / 8:
-        return "▉"
-    elif val >= 6 / 8:
-        return "▊"
-    elif val >= 5 / 8:
-        return "▋"
-    elif val >= 4 / 8:
-        return "▌"
-    elif val >= 3 / 8:
-        return "▍"
-    elif val >= 2 / 8:
-        return "▎"
-    elif val >= 1 / 8:
-        return "▏"
-    return ""
 
 
 class _FrameAlreadyRendered(Exception):

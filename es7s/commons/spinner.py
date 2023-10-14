@@ -83,4 +83,3 @@ class SpinnerBrailleSquareFill(Spinner):
     @property
     def _frames(self) -> list[str]:
         return self._FRAMES
-
