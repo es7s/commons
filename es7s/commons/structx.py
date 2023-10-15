@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-#  es7s/core
+#  es7s/commons
 #  (c) 2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
 from __future__ import annotations
@@ -48,8 +48,8 @@ class RingList(t.Generic[_DNT]):
                     if self._any == self._any.next:  # delete link to entrypoint
                         self._any = None  # if its getting removed
                     else:
-                        self._any = el.next  # if not, pick another element as
-                return  # an entrypoint for a ring list
+                        self._any = el.next  # if not, pick another element as an entrypoint
+                return
         raise ValueError("No such element")
 
     def __len__(self) -> int:

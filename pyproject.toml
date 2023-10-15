@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "es7s.commons"
+dynamic = ["version"]
+description = "es7s system common classes"
+readme = "README.md"
+license = "LGPL-3.0"
+requires-python = ">=3.10"
+platforms = ["linux"]
+keywords = ["color", "format", "console", "terminal", "ansi"]
+authors = [
+    { name = "Aleksandr Shavykin", email = "0.delameter@gmail.com" },
+]
+classifiers = [
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Text Processing :: General",
+    "Topic :: Text Processing :: Filters",
+]
+dependencies = [
+    "pytermor~=2.106",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/es7s/commons"
+"Bug Tracker" = "https://github.com/es7s/commons/issues"
+
+# ---------------------------------------------------------
+
+[tool.hatch.publish.index]
+disable = true
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/es7s/commons",
+]
+
+[tool.hatch.version]
+path = "es7s/commons/_version.py"
+
+# ---------------------------------------------------------
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+# ---------------------------------------------------------

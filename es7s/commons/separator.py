@@ -1,9 +1,8 @@
 # ------------------------------------------------------------------------------
-#  es7s/core
+#  es7s/commons
 #  (c) 2022-2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
-
-# python considers first three as line separators
+# python classifies first three as line separators
 
 FILE_SEPARATOR = "\x1c"
 GROUP_SEPARATOR = "\x1d"

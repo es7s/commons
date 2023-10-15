@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-#  es7s/core
+#  es7s/commons
 #  (c) 2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
 from __future__ import annotations
@@ -13,7 +13,6 @@ from logging import getLogger
 from math import ceil
 from pathlib import Path
 
-import click
 import pytermor as pt
 from pytermor import filtern, FT
 
@@ -224,7 +223,7 @@ def format_attrs(*o: object, keep_classname=True, level=0, flat=False) -> str:
         return o
     elif isinstance(o, t.Mapping):
         return _wrap(" ".join(f"{_to_str(k)}={format_attrs(v, flat=flat)}" for k, v in o.items()))
-    elif issubclass(type(o), (io.IOBase, click.utils.LazyFile)):
+    elif issubclass(type(o), io.IOBase):
         return f"{pt.get_qname(o)}['{getattr(o, 'name', '?')}', {getattr(o, 'mode', '?')}]"
     elif isinstance(o, t.Iterable):
         return _wrap(" ".join(format_attrs(v, level=level + 1, flat=flat) for v in o))

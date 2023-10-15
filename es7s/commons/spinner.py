@@ -1,8 +1,9 @@
 # ------------------------------------------------------------------------------
-#  es7s/core
+#  es7s/commons
 #  (c) 2022-2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
 from abc import ABCMeta, abstractmethod
+from functools import cached_property
 
 
 class Spinner(metaclass=ABCMeta):
@@ -24,63 +25,36 @@ class Spinner(metaclass=ABCMeta):
 
 
 class SpinnerBrailleSquare(Spinner):
-    _FRAMES = [
-        "⡀ ",
-        "⠄ ",
-        "⠂ ",
-        "⠁ ",
-        "⠈ ",
-        " ⠁",
-        " ⠈",
-        " ⠐",
-        " ⠠",
-        " ⢀",
-        " ⡀",
-        "⢀ ",
-    ]
-
-    @property
+    @cached_property
     def _frames(self) -> list[str]:
-        return self._FRAMES
+        # fmt: off
+        return [
+            "⡀ ", "⠄ ", "⠂ ", "⠁ ",
+            "⠈ ", " ⠁", " ⠈", " ⠐",
+            " ⠠", " ⢀", " ⡀", "⢀ ",
+        ]
+        # fmt: on
 
 
 class SpinnerBrailleSquareCenter(Spinner):
-    _FRAMES = [
-        "⡰⠆",
-        "⠴⠆",
-        "⠲⠆",
-        "⠱⠆",
-        "⠸⠆",
-        "⠰⠇",
-        "⠰⠎",
-        "⠰⠖",
-        "⠰⠦",
-        "⠰⢆",
-        "⠰⡆",
-        "⢰⠆",
-    ]
-
-    @property
+    @cached_property
     def _frames(self) -> list[str]:
-        return self._FRAMES
+        # fmt: off
+        return [
+            "⡰⠆", "⠴⠆", "⠲⠆", "⠱⠆",
+            "⠸⠆", "⠰⠇", "⠰⠎", "⠰⠖",
+            "⠰⠦", "⠰⢆", "⠰⡆", "⢰⠆",
+        ]
+        # fmt: on
 
 
 class SpinnerBrailleSquareFill(Spinner):
-    _FRAMES = [
-        "⢿⣿",
-        "⣻⣿",
-        "⣽⣿",
-        "⣾⣿",
-        "⣷⣿",
-        "⣿⣾",
-        "⣿⣷",
-        "⣿⣯",
-        "⣿⣟",
-        "⣿⡿",
-        "⣿⢿",
-        "⡿⣿",
-    ]
-
-    @property
+    @cached_property
     def _frames(self) -> list[str]:
-        return self._FRAMES
+        # fmt: off
+        return [
+            "⢿⣿", "⣻⣿", "⣽⣿", "⣾⣿",
+            "⣷⣿", "⣿⣾", "⣿⣷", "⣿⣯",
+            "⣿⣟", "⣿⡿", "⣿⢿", "⡿⣿",
+        ]
+        # fmt: on

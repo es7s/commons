@@ -1,0 +1,8 @@
+dist
+*.egg-info
+venv*
+**/__pycache__/**
+.coverage
+misc/coverage
+.pytest_cache
+/.hatch/
