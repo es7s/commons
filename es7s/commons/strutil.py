@@ -65,6 +65,7 @@ def to_superscript(s: str, *, strict: bool = False) -> str:
 def re_unescape(s: str) -> str:
     return s.replace("\\", "")
 
+
 #
 # def wrap_sgr(
 #     rendered: str | list[str],

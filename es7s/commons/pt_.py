@@ -18,7 +18,7 @@ import pytermor as pt
 from pytermor import filtern, FT
 
 
-def joincoal(*arg: any, sep='') -> str:
+def joincoal(*arg: any, sep="") -> str:
     return sep.join(map(str, filtern(arg)))
 
 
@@ -30,9 +30,8 @@ filtere = partial(filter, isempty)
 
 
 def filterev(mapping: dict) -> dict:
-    """ Shortcut for filtering out falsy AND empty values from mappings """
+    """Shortcut for filtering out falsy AND empty values from mappings"""
     return dict(filter(lambda kv: isempty(kv[1]), mapping.items()))
-
 
 
 class DisposableComposite(pt.Composite):

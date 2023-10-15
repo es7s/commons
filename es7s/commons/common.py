@@ -11,29 +11,33 @@ from functools import reduce
 
 import math
 import typing as t
+from typing import final
 
 
 def Regex(
-        pattern: str,
-        ignorecase=False,
-        verbose=False,
-        dotall=False,
-        multiline=False,
+    pattern: str,
+    ignorecase=False,
+    verbose=False,
+    dotall=False,
+    multiline=False,
 ) -> re.Pattern[str]:
-    flags = reduce(operator.xor, {
-        re.IGNORECASE * ignorecase,
-        re.VERBOSE * verbose,
-        re.DOTALL * dotall,
-        re.MULTILINE * multiline,
-        })
+    flags = t.cast(
+        int,
+        reduce(
+            operator.xor,
+            {
+                re.IGNORECASE * ignorecase,
+                re.VERBOSE * verbose,
+                re.DOTALL * dotall,
+                re.MULTILINE * multiline,
+            },
+        ),
+    )
     return re.compile(pattern, flags)
 
 
-
+@final
 class FinalSingleton:
-    """
-    Can have children (at most one of each), but not grandchildren.
-    """
     _instance: FinalSingleton
 
     def __init__(self):
@@ -52,16 +56,17 @@ class FinalSingleton:
 
 def autogen(__origin):
     def wrapper(*args, **kwargs):
-        if not hasattr(__origin, '__generator'):
+        if not hasattr(__origin, "__generator"):
             __origin.__generator = __origin(*args, **kwargs)
         return next(__origin.__generator)
+
     return wrapper
 
 
 def percentile(
-        N: t.Sequence[float],
-        percent: float,
-        key: t.Callable[[float], float] = lambda x: x,
+    N: t.Sequence[float],
+    percent: float,
+    key: t.Callable[[float], float] = lambda x: x,
 ) -> float:
     """
     Find the percentile of a list of values.
@@ -85,8 +90,8 @@ def percentile(
 
 
 def median(
-        N: t.Sequence[float],
-        key: t.Callable[[float], float] = lambda x: x,
+    N: t.Sequence[float],
+    key: t.Callable[[float], float] = lambda x: x,
 ) -> float:
     """
     Find the median of a list of values.
@@ -100,3 +105,7 @@ def median(
 
 def now() -> int:
     return int(time.time())
+
+
+def nowf() -> float:
+    return time.time_ns() / 1e9

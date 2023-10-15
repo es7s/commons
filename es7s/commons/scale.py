@@ -10,20 +10,19 @@ import pytermor as pt
 from .strutil import to_superscript
 
 
-
 class Scale(pt.Text):
     SCALE_LEN = 10
 
     def __init__(
-            self,
-            ratio: float,
-            label_st: pt.FT,
-            scale_st: pt.FT,
-            length: int = SCALE_LEN,
-            allow_partials: bool = True,
-            full_block_char: str = "█",
-            start_char: str = None,
-            require_not_empty: bool = False,
+        self,
+        ratio: float,
+        label_st: pt.FT,
+        scale_st: pt.FT,
+        length: int = SCALE_LEN,
+        allow_partials: bool = True,
+        full_block_char: str = "█",
+        start_char: str = None,
+        require_not_empty: bool = False,
     ):
         self._ratio = ratio
         self._label_st = label_st
@@ -40,11 +39,11 @@ class Scale(pt.Text):
 
     def _make(self) -> t.Iterable[pt.Fragment]:
         ratio_str = pt.format_auto_float(100 * self._ratio, 3)
-        if ratio_str == '0.0':
-            ratio_str = 'e-2'
-        if 'e' in ratio_str:
-            base, exp, power = ratio_str.partition('e')
-            ratio_str = base + '10' + to_superscript(power)
+        if ratio_str == "0.0":
+            ratio_str = "e-2"
+        if "e" in ratio_str:
+            base, exp, power = ratio_str.partition("e")
+            ratio_str = base + "10" + to_superscript(power)
         label_str = f"{ratio_str:>4s}% "
         self.label = pt.Fragment(" " + label_str, self._label_st)
 
