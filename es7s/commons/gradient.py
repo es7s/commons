@@ -3,7 +3,7 @@
 #  (c) 2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
 
-import logging
+from logging import getLogger
 import re
 import typing
 from abc import ABCMeta, abstractmethod
@@ -24,7 +24,7 @@ class GradientPoint:
     col: RGB
 
     def __post_init__(self):
-        logging.getLogger(__package__).debug(f"Created {self!r}")
+        getLogger(__package__).debug(f"Created {self!r}")
 
     def __repr__(self):
         return f"{self.__class__.__name__}[pos={100*self.pos:8.4f}%, {self.col}]"
@@ -38,7 +38,7 @@ class GradientSegment:
 
         col_mid = self._interpolate_2p(self.p_left, self.p_right, pos_mid)
         self.p_mid: GradientPoint = GradientPoint(pos_mid, col_mid)
-        logging.getLogger(__package__).debug(f"Created {self!r}")
+        getLogger(__package__).debug(f"Created {self!r}")
 
     def interpolate(self, pos: float) -> RGB:
         if pos <= self.p_mid.pos:

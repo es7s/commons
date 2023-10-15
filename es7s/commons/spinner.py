@@ -12,30 +12,31 @@ class Spinner(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def _frames(self) -> list[str]: raise NotImplementedError
+    def _frames(self) -> list[str]:
+        raise NotImplementedError
 
     def render(self, string: str):
         frame = self._frames[self._frame]
         self._frame += 1
         if self._frame >= self._max_frame:
             self._frame = 0
-        return f'\r{frame} {string}'
+        return f"\r{frame} {string}"
 
 
 class SpinnerBrailleSquare(Spinner):
     _FRAMES = [
-        '⡀ ',
-        '⠄ ',
-        '⠂ ',
-        '⠁ ',
-        '⠈ ',
-        ' ⠁',
-        ' ⠈',
-        ' ⠐',
-        ' ⠠',
-        ' ⢀',
-        ' ⡀',
-        '⢀ ',
+        "⡀ ",
+        "⠄ ",
+        "⠂ ",
+        "⠁ ",
+        "⠈ ",
+        " ⠁",
+        " ⠈",
+        " ⠐",
+        " ⠠",
+        " ⢀",
+        " ⡀",
+        "⢀ ",
     ]
 
     @property
@@ -45,18 +46,18 @@ class SpinnerBrailleSquare(Spinner):
 
 class SpinnerBrailleSquareCenter(Spinner):
     _FRAMES = [
-        '⡰⠆',
-        '⠴⠆',
-        '⠲⠆',
-        '⠱⠆',
-        '⠸⠆',
-        '⠰⠇',
-        '⠰⠎',
-        '⠰⠖',
-        '⠰⠦',
-        '⠰⢆',
-        '⠰⡆',
-        '⢰⠆',
+        "⡰⠆",
+        "⠴⠆",
+        "⠲⠆",
+        "⠱⠆",
+        "⠸⠆",
+        "⠰⠇",
+        "⠰⠎",
+        "⠰⠖",
+        "⠰⠦",
+        "⠰⢆",
+        "⠰⡆",
+        "⢰⠆",
     ]
 
     @property
@@ -66,18 +67,18 @@ class SpinnerBrailleSquareCenter(Spinner):
 
 class SpinnerBrailleSquareFill(Spinner):
     _FRAMES = [
-        '⢿⣿',
-        '⣻⣿',
-        '⣽⣿',
-        '⣾⣿',
-        '⣷⣿',
-        '⣿⣾',
-        '⣿⣷',
-        '⣿⣯',
-        '⣿⣟',
-        '⣿⡿',
-        '⣿⢿',
-        '⡿⣿',
+        "⢿⣿",
+        "⣻⣿",
+        "⣽⣿",
+        "⣾⣿",
+        "⣷⣿",
+        "⣿⣾",
+        "⣿⣷",
+        "⣿⣯",
+        "⣿⣟",
+        "⣿⡿",
+        "⣿⢿",
+        "⡿⣿",
     ]
 
     @property

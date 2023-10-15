@@ -3,16 +3,14 @@
 #  (c) 2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
 import math
+import sys
 import time
 import typing
+import typing as t
+from io import StringIO
 
 import pytermor as pt
 
-from .io_ import IoProxy, get_stderr
-from .log import Logger
-from .styles import Styles as BaseStyles, FrozenStyle
-from .theme import ThemeColor
-from es7s.commons import get_partial_hblock
 
 class DummyProgressBar:
     def __init__(self, *_, **__):
@@ -34,29 +32,10 @@ class DummyProgressBar:
         self._count += 1
 
     def render(self):
-        get_stderr().echo(f"{pt.get_qname(self)} [{self._count}] {self._label}")
+        sys.stderr.write(f"{pt.get_qname(self)} [{self._count}] {self._label}\n")
 
     def close(self, *args, **kwargs):
         ...
-
-
-class Styles(BaseStyles):
-    _THEME_COLOR = ThemeColor()
-    _THEME_BRIGHT_COLOR = ThemeColor("theme_bright")
-
-    DEFAULT = FrozenStyle(bg=pt.cv.GRAY_0)
-
-    ICON = FrozenStyle(DEFAULT, fg=_THEME_BRIGHT_COLOR)
-    TASK_NUM_CUR = FrozenStyle(ICON, bold=True)
-    TASK_NUM_MAX = DEFAULT
-    TASK_DELIM = FrozenStyle(DEFAULT, dim=True)
-    TASK_LABEL = DEFAULT
-
-    RATIO_DIGITS = FrozenStyle(bold=True)
-    RATIO_PERC_SIGN = FrozenStyle(dim=True)
-    BAR_BORDER = FrozenStyle(DEFAULT, fg=pt.cv.GRAY_19)
-    BAR_FILLED = FrozenStyle(fg=pt.cv.GRAY_0, bg=_THEME_COLOR)
-    BAR_EMPTY = FrozenStyle(fg=_THEME_COLOR, bg=pt.cv.GRAY_0)
 
 
 class ProgressBar:
@@ -68,6 +47,12 @@ class ProgressBar:
     TERM_WIDTH_QUERY_INTERVAL_SEC = 5
     PERSIST_MIN_INTERVAL_SEC = 5
 
+    SGR_RESET = pt.SeqIndex.RESET.assemble()
+    CSI_CHA1 = pt.make_set_cursor_column(1).assemble()
+    CSI_EL0 = pt.make_clear_line_after_cursor().assemble()
+    OUT_START = CSI_CHA1 + CSI_EL0
+    OUT_END = pt.SeqIndex.BG_COLOR_OFF.assemble()
+
     FIELD_SEP = " "
     ICON = "◆"
     NUM_DELIM = "/"
@@ -76,8 +61,9 @@ class ProgressBar:
 
     def __init__(
         self,
-        io_proxy: IoProxy,
-        logger: Logger,
+        renderer: pt.IRenderer,
+        io: t.IO,
+        theme_color: pt.Color,
         tasks_amount=1,
         task_num=1,
         task_label="Working",
@@ -86,14 +72,13 @@ class ProgressBar:
         step_label="...",
         print_step_num=True,
     ):
-        self._enabled = False
-        self._created_at = time.monotonic_ns()
-
-        self._io_proxy: IoProxy | None = io_proxy
-
-        if logger.setup.progress_bar_mode_allowed:
-            self._enabled = True
-            io_proxy.enable_output_buffering()
+        self._last_persist_ts = \
+            self._created_at = \
+            time.monotonic_ns()
+        self._renderer = renderer
+        self._io = io
+        self._output_buffer = _OutputBuffer()
+        self._styles = _PBarStyles(theme_color)
 
         self._tasks_amount: int = tasks_amount
         self._task_num: int = task_num
@@ -112,8 +97,8 @@ class ProgressBar:
         self._last_term_width_query_ts: int | None = None
 
     @property
-    def enabled(self) -> bool:
-        return self._enabled
+    def is_format_allowed(self) -> bool:
+        return self._renderer.is_format_allowed
 
     def init_tasks(self, tasks_amount: int = None, task_num: int = 1):
         if tasks_amount is not None:
@@ -146,32 +131,29 @@ class ProgressBar:
             self.render()
 
     def render(self):
-        if not self._enabled:
-            return
-
         self._compute_max_label_len()
         try:
             self._ensure_next_frame()
         except _FrameAlreadyRendered:
             return
 
-        left_part_len = self._render_ghost()
+        left_part_len = self._render()
 
         if self._should_persist():
-            self._render_persistent(left_part_len)
+            self._persist(left_part_len)
 
-    def _render_ghost(self):
+    def _render(self):
         task_ratio = self._compute_task_progress()
         icon = self._format_icon()
         task_state = [*self._format_task_state()]
 
         field_sep = self._field_sep_nobg
-        if self._io_proxy.renderer.is_format_allowed:
+        if self.is_format_allowed:
             field_sep = self._field_sep
         else:
             icon = ''
 
-        result = self._io_proxy.render(
+        result = pt.render(
             pt.Composite(
                 field_sep,
                 icon,
@@ -181,16 +163,17 @@ class ProgressBar:
                 *self._format_ratio_bar(task_ratio),
                 field_sep,
                 *self._format_labels(),
-            )
+            ),
+            renderer=self._renderer,
         )
-        self._io_proxy.echo_status_line(result)
+        self._echo(result)
         return len(self.FIELD_SEP) + len(icon) + sum(map(len, task_state))
 
-    def _render_persistent(self, left_part_len: int):
+    def _persist(self, left_part_len: int):
         delta_str = pt.format_time_ns(time.monotonic_ns() - self._created_at)
         task_ratio = self._compute_task_progress()
 
-        result = self._io_proxy.render(
+        result = pt.render(
             pt.Composite(
                 self._field_sep_nobg,
                 pt.fit(f'+{delta_str}', left_part_len, ">"),
@@ -199,21 +182,44 @@ class ProgressBar:
                 pt.SeqIndex.BOLD_DIM_OFF.assemble(),
                 self._field_sep_nobg,
                 *self._format_labels(),
-            )
+            ),
+            renderer=self._renderer,
         )
-        self._io_proxy.echo_status_line(result, persist=True)
+        self._echo(result, persist=True)
+
+    def _echo(self, result: str, persist=False):
+        if self.is_format_allowed:
+            result += self.CSI_EL0 + self.SGR_RESET
+        else:
+            result += '\n'
+
+        if self._output_buffer.getvalue():
+            self._last_persist_ts = time.time()
+            self._output_buffer.write(self.OUT_START + result + self.OUT_END)
+            self._io.write(self._output_buffer.popvalue().rstrip())
+        else:
+            if persist:
+                self._last_persist_ts = time.time()
+            if self.is_format_allowed:
+                result = self.OUT_START + result + self.OUT_END
+            self._io.write(result)
+            if persist:
+                self._io.write("\n")
+
+        self._io.flush()
 
     def close(self):
         self._task_num = self._get_max_task_num()
         self._steps_amount = 0
 
-        if self._enabled:
-            self._io_proxy.disable_output_buffering()
-            self._enabled = False
+        if self._output_buffer:
+            self._echo("", persist=True)
+            self._output_buffer.close()
+            self._output_buffer = None
 
     @property
     def _field_sep(self) -> str:
-        return f"{Styles.DEFAULT.bg.to_sgr(pt.ColorTarget.BG)}{self.FIELD_SEP}"
+        return f"{self._styles.DEFAULT.bg.to_sgr(pt.ColorTarget.BG)}{self.FIELD_SEP}"
 
     @property
     def _field_sep_nobg(self) -> str:
@@ -264,9 +270,7 @@ class ProgressBar:
             raise _FrameAlreadyRendered
 
     def _should_persist(self) -> bool:
-        if last_persist := self._io_proxy.last_persist_ts():
-            return time.time() - last_persist >= self.PERSIST_MIN_INTERVAL_SEC
-        return False
+        return time.time() - self._last_persist_ts >= self.PERSIST_MIN_INTERVAL_SEC
 
     def _format_ratio_bar(self, ratio: float) -> typing.Iterable[str | pt.Fragment]:
         filled_length = math.floor(ratio * self.BAR_WIDTH)
@@ -275,13 +279,12 @@ class ProgressBar:
         ratio_label_left_pos = (self.BAR_WIDTH - ratio_label_len) // 2
         ratio_label_perc_pos = ratio_label_left_pos + 3
 
-        ren = self._io_proxy.renderer
-        if not ren.is_format_allowed:
+        if not self.is_format_allowed:
             yield ''.join(ratio_label)
             return
 
         bar_styles = [
-            ren.render("\x00", Styles.BAR_FILLED).split("\x00", 1)[0],
+            self._renderer.render("\x00", self._styles.BAR_FILLED).split("\x00", 1)[0],
             pt.SeqIndex.INVERSED.assemble(),
         ]
         label_styles = [
@@ -290,7 +293,7 @@ class ProgressBar:
         ]
 
         cursor = 0
-        yield pt.Fragment(self.BORDER_LEFT_CHAR, Styles.BAR_BORDER)
+        yield pt.Fragment(self.BORDER_LEFT_CHAR, self._styles.BAR_BORDER)
         yield bar_styles.pop(0)
 
         while cursor < self.BAR_WIDTH:
@@ -311,20 +314,20 @@ class ProgressBar:
         if bar_styles:
             yield bar_styles.pop()
         yield pt.SeqIndex.INVERSED_OFF.assemble()
-        yield pt.Fragment(self.BORDER_RIGHT_CHAR, Styles.BAR_BORDER)
+        yield pt.Fragment(self.BORDER_RIGHT_CHAR, self._styles.BAR_BORDER)
         yield pt.SeqIndex.BOLD_DIM_OFF.assemble()
 
     def _format_icon(self) -> pt.Fragment:
         icon = (self.ICON, " ")[self._icon_frame % 2]
-        return pt.Fragment(icon, Styles.ICON)
+        return pt.Fragment(icon, self._styles.ICON)
 
     def _format_task_state(self) -> typing.Iterable[pt.Fragment]:
         task_num_cur = f"{self._task_num:>{self._get_max_task_num_len()}d}"
         task_num_max = f"{self._get_max_task_num():<d}"
 
-        yield pt.Fragment(task_num_cur, Styles.TASK_NUM_CUR)
-        yield pt.Fragment(self.NUM_DELIM, Styles.TASK_DELIM)
-        yield pt.Fragment(task_num_max, Styles.TASK_NUM_MAX)
+        yield pt.Fragment(task_num_cur, self._styles.TASK_NUM_CUR)
+        yield pt.Fragment(self.NUM_DELIM, self._styles.TASK_DELIM)
+        yield pt.Fragment(task_num_max, self._styles.TASK_NUM_MAX)
 
     def _format_labels(self) -> typing.Iterable[pt.Fragment]:
         task_label = self._task_label
@@ -339,12 +342,45 @@ class ProgressBar:
             self._max_label_len - self.LABEL_PAD * 2 - len(task_label) - len(step_num),
             "<",
         )
-        if not self._io_proxy.renderer.is_format_allowed:
+        if not self.is_format_allowed:
             yield from [step_num, task_label, pt.pad(self.LABEL_PAD), label_right_text]
             return
         yield pt.Fragment(f"{pt.SeqIndex.DIM}{step_num}")
         yield pt.Fragment(f"{pt.SeqIndex.BOLD_DIM_OFF}{task_label}{pt.pad(self.LABEL_PAD)}")
         yield pt.Fragment(f"{pt.SeqIndex.DIM}{label_right_text}")
+
+
+class _PBarStyles(pt.Styles):
+    def __init__(self, theme_color: pt.Color):
+        self.THEME_COLOR = theme_color
+        self.DEFAULT = pt.FrozenStyle(bg=pt.cv.GRAY_0)
+
+        self.ICON = pt.FrozenStyle(self.DEFAULT, fg=self.THEME_COLOR)
+        self.TASK_NUM_CUR = pt.FrozenStyle(self.ICON, bold=True)
+        self.TASK_NUM_MAX = self.DEFAULT
+        self.TASK_DELIM = pt.FrozenStyle(self.DEFAULT, dim=True)
+        self.TASK_LABEL = self.DEFAULT
+
+        self.RATIO_DIGITS = pt.FrozenStyle(bold=True)
+        self.RATIO_PERC_SIGN = pt.FrozenStyle(dim=True)
+        self.BAR_BORDER = pt.FrozenStyle(self.DEFAULT, fg=pt.cv.GRAY_19)
+        self.BAR_FILLED = pt.FrozenStyle(fg=pt.cv.GRAY_0, bg=self.THEME_COLOR)
+        self.BAR_EMPTY = pt.FrozenStyle(fg=self.THEME_COLOR, bg=pt.cv.GRAY_0)
+
+
+class _FrameAlreadyRendered(Exception):
+    pass
+
+
+class _OutputBuffer(StringIO):
+    def reset(self) -> None:
+        self.truncate(0)
+        self.seek(0)
+
+    def popvalue(self) -> str:
+        val = self.getvalue()
+        self.reset()
+        return val
 
 
 # thresholds: 6
@@ -375,7 +411,3 @@ class ProgressBar:
 #         left = self._get_ratio_global()
 #         right = self._get_next_ratio_global()
 #         return left + self._ratio_local * (right - left)
-
-
-class _FrameAlreadyRendered(Exception):
-    pass

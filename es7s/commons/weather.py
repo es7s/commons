@@ -184,5 +184,5 @@ def justify_wicon(icon: str, max_width: int, measure=False) -> tuple[str, int]:
         width = pt.measure_char_width(icon)
     else:
         width = sum(max(0, pt.guess_char_width(c)) for c in icon)
-    fill = '␣' if measure else ' '
-    return icon + fill*(max_width - width), width
+    fill = "␣" if measure else " "
+    return icon + fill * (max_width - width), width

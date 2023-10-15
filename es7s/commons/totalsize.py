@@ -15,9 +15,7 @@ except ImportError:
     pass
 
 
-def total_size(
-    o: t.Any, handlers: t.Dict[t.Any, t.Iterator] = None, verbose: bool = False
-) -> int:
+def total_size(o: t.Any, handlers: t.Dict[t.Any, t.Iterator] = None, verbose: bool = False) -> int:
     """
     Return the approximate memory footprint of an object and all of its contents.
 

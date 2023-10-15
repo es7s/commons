@@ -4,15 +4,14 @@
 # ------------------------------------------------------------------------------
 from __future__ import annotations
 
-import time
-import pytermor as pt
+import typing as t
 from functools import update_wrapper
 from logging import getLogger, DEBUG
-from typing import cast, Optional, Union
+from typing import cast, Optional, Union, overload
 
-import typing as t
-from typing import overload
+import pytermor as pt
 
+from .common import nowf
 
 _F = t.TypeVar("_F", bound=t.Callable[..., t.Any])
 _MFT = t.TypeVar("_MFT", bound=t.Callable[[str, t.Any, ...], Optional[Union[str, t.Iterable[str]]]])
@@ -33,9 +32,9 @@ def measure(__origin: _F = None, *, fmter: _MFT = None, level=DEBUG) -> _F | t.C
     def decorator(origin: t.Callable[..., t.Any]):
         def wrapper(*args, **kwargs):
             logger = getLogger(__package__)
-            before_s = _now_s()
+            before_s = nowf()
             result = origin(*args, **kwargs)
-            delta_s = _now_s() - before_s
+            delta_s = nowf() - before_s
 
             try:
                 fmt_fn: _MFT = fmter or _default_formatter
@@ -52,10 +51,6 @@ def measure(__origin: _F = None, *, fmter: _MFT = None, level=DEBUG) -> _F | t.C
         return decorator(__origin)
     else:
         return decorator
-
-
-def _now_s() -> float:
-    return time.time_ns() / 1e9
 
 
 def _trace_render(origin: _F) -> _F:
