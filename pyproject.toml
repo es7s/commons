@@ -28,7 +28,7 @@ classifiers = [
     "Topic :: Text Processing :: Filters",
 ]
 dependencies = [
-    "pytermor~=2.106",
+    "pytermor>=2.106",
 ]
 
 [project.urls]
@@ -42,11 +42,11 @@ disable = true
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/es7s/commons",
+    "/es7s_commons",
 ]
 
 [tool.hatch.version]
-path = "es7s/commons/_version.py"
+path = "es7s_commons/_version.py"
 
 # ---------------------------------------------------------
 
