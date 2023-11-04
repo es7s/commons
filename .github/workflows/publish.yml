@@ -1,0 +1,12 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  publish-main:
+    uses: delameter/ci-cd/.github/workflows/docker-build-push.yml@v8
+    secrets:
+      auth: ${{ secrets.DOCKER_AUTH }}
