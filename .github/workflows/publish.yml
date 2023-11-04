@@ -7,6 +7,9 @@ on:
 
 jobs:
   publish-main:
-    uses: delameter/ci-cd/.github/workflows/docker-build-push.yml@v8
+    uses: delameter/ci-cd/.github/workflows/publish-hatch.yml@v8
+    with:
+      python-version: "3.10"
+      hatch-index-repo: "main"
     secrets:
-      auth: ${{ secrets.DOCKER_AUTH }}
+      hatch-index-auth: ${{ secrets.PYPI_PASSWORD_MAIN }}
