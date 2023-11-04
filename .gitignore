@@ -6,3 +6,4 @@ venv*
 misc/coverage
 .pytest_cache
 /.hatch/
+*.bak

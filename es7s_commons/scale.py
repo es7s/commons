@@ -9,6 +9,8 @@ import pytermor as pt
 
 from .strutil import to_superscript
 
+FULL_BLOCK = "█"
+
 
 class Scale(pt.Text):
     SCALE_LEN = 10
@@ -20,7 +22,7 @@ class Scale(pt.Text):
         scale_st: pt.FT,
         length: int = SCALE_LEN,
         allow_partials: bool = True,
-        full_block_char: str = "█",
+        full_block_char: str = FULL_BLOCK,
         start_char: str = None,
         require_not_empty: bool = False,
     ):
@@ -63,7 +65,7 @@ class Scale(pt.Text):
         yield pt.Fragment(" " * (self._length - len(self.blocks)), self._scale_st)
 
 
-def get_partial_hblock(val: float) -> str:
+def get_partial_hblock(val: float) -> str:  # @REFACTOR ME
     if val >= 7 / 8:
         return "▉"
     elif val >= 6 / 8:

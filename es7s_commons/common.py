@@ -103,6 +103,25 @@ def median(
     return percentile(N, percent=0.5, key=key)
 
 
+def bcs(a, b):
+    while a != 0 and b != 0:
+        if a > b:
+            a %= b
+        else:
+            b %= a
+    return a + b
+
+
+def lcm(a, b):
+    m = a * b
+    while a != 0 and b != 0:
+        if a > b:
+            a %= b
+        else:
+            b %= a
+    return m // (a + b)
+
+
 def now() -> int:
     return int(time.time())
 

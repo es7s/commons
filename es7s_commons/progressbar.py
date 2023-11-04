@@ -10,6 +10,7 @@ import typing as t
 from io import StringIO
 
 import pytermor as pt
+from .scale import FULL_BLOCK, get_partial_hblock
 
 
 class DummyProgressBar:
@@ -72,9 +73,7 @@ class ProgressBar:
         step_label="...",
         print_step_num=True,
     ):
-        self._last_persist_ts = \
-            self._created_at = \
-            time.monotonic_ns()
+        self._last_persist_ts = self._created_at = time.monotonic_ns()
         self._renderer = renderer
         self._io = io
         self._output_buffer = _OutputBuffer()
@@ -151,7 +150,7 @@ class ProgressBar:
         if self.is_format_allowed:
             field_sep = self._field_sep
         else:
-            icon = ''
+            icon = ""
 
         result = pt.render(
             pt.Composite(
@@ -176,7 +175,7 @@ class ProgressBar:
         result = pt.render(
             pt.Composite(
                 self._field_sep_nobg,
-                pt.fit(f'+{delta_str}', left_part_len, ">"),
+                pt.fit(f"+{delta_str}", left_part_len, ">"),
                 self._field_sep_nobg,
                 *self._format_ratio_bar(task_ratio),
                 pt.SeqIndex.BOLD_DIM_OFF.assemble(),
@@ -191,7 +190,7 @@ class ProgressBar:
         if self.is_format_allowed:
             result += self.CSI_EL0 + self.SGR_RESET
         else:
-            result += '\n'
+            result += "\n"
 
         if self._output_buffer.getvalue():
             self._last_persist_ts = time.time()
@@ -280,7 +279,11 @@ class ProgressBar:
         ratio_label_perc_pos = ratio_label_left_pos + 3
 
         if not self.is_format_allowed:
-            yield ''.join(ratio_label)
+            bar_chars = filled_length * FULL_BLOCK
+            bar_chars += get_partial_hblock(ratio - filled_length * self.BAR_WIDTH)
+            yield self.BORDER_LEFT_CHAR
+            yield pt.fit(bar_chars, self.BAR_WIDTH)
+            yield from ratio_label
             return
 
         bar_styles = [
@@ -343,11 +346,11 @@ class ProgressBar:
             "<",
         )
         if not self.is_format_allowed:
-            yield from [step_num, task_label, pt.pad(self.LABEL_PAD), label_right_text]
+            yield from [task_label, pt.pad(self.LABEL_PAD), step_num, label_right_text]
             return
+        yield pt.Fragment(f"{task_label}{pt.pad(self.LABEL_PAD)}")
         yield pt.Fragment(f"{pt.SeqIndex.DIM}{step_num}")
-        yield pt.Fragment(f"{pt.SeqIndex.BOLD_DIM_OFF}{task_label}{pt.pad(self.LABEL_PAD)}")
-        yield pt.Fragment(f"{pt.SeqIndex.DIM}{label_right_text}")
+        yield pt.Fragment(f"{label_right_text}")
 
 
 class _PBarStyles(pt.Styles):
