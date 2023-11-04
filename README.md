@@ -16,3 +16,7 @@ es7s system shared code
 ```shell 
 pip install es7s-commons
 ```
+
+## Changelog
+
+[CHANGES.rst](CHANGES.rst)
