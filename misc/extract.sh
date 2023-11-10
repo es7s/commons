@@ -1,6 +1,6 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# es7s/core
+# es7s/commons
 # (C) 2023 A. Shavykin <0.delameter@gmail.com>
 # -----------------------------------------------------------------------------
 # Script for extracting commits from the original repo into separate one.
