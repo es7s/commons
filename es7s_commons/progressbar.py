@@ -228,7 +228,6 @@ class ProgressBar:
         self._max_label_len = pt.get_terminal_width() - (
             field_seps_len + icon_len + task_bar_len + task_state_len + self.LABEL_PAD
         )
-        print("self._max_label_len", self._max_label_len)
 
     def _ensure_next_frame(self):
         now = time.monotonic_ns()
