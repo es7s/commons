@@ -73,7 +73,9 @@ class ProgressBar:
         step_label="...",
         print_step_num=True,
     ):
-        self._last_persist_ts = self._created_at = time.monotonic_ns()
+        self._last_persist_ts: int | None = None
+        self._created_at = time.monotonic_ns()
+
         self._renderer = renderer
         self._io = io
         self._output_buffer = _OutputBuffer()
@@ -136,21 +138,10 @@ class ProgressBar:
         except _FrameAlreadyRendered:
             return
 
-        left_part_len = self._render()
-
-        if self._should_persist():
-            self._persist(left_part_len)
-
-    def _render(self):
         task_ratio = self._compute_task_progress()
+        field_sep = self._format_field_sep()
         icon = self._format_icon()
         task_state = [*self._format_task_state()]
-
-        field_sep = self._field_sep_nobg
-        if self.is_format_allowed:
-            field_sep = self._field_sep
-        else:
-            icon = ""
 
         result = pt.render(
             pt.Composite(
@@ -165,45 +156,40 @@ class ProgressBar:
             ),
             renderer=self._renderer,
         )
+        left_part_len = len(self.FIELD_SEP) + len(icon) + sum(map(len, task_state))
+
+        if self._should_persist():
+            delta_str = pt.format_time_ns(time.monotonic_ns() - self._created_at)
+            result_nofmt = pt.render(
+                pt.Composite(
+                    pt.fit(f"+{delta_str}", left_part_len + 1, ">"),
+                    self._format_field_sep(raw=True),
+                    *self._format_ratio_bar(task_ratio, raw=True),
+                    self._format_field_sep(raw=True),
+                    *self._format_labels(raw=True),
+                ),
+                renderer=self._renderer,
+            )
+            self._echo(result_nofmt, persist=True)
         self._echo(result)
-        return len(self.FIELD_SEP) + len(icon) + sum(map(len, task_state))
-
-    def _persist(self, left_part_len: int):
-        delta_str = pt.format_time_ns(time.monotonic_ns() - self._created_at)
-        task_ratio = self._compute_task_progress()
-
-        result = pt.render(
-            pt.Composite(
-                self._field_sep_nobg,
-                pt.fit(f"+{delta_str}", left_part_len, ">"),
-                self._field_sep_nobg,
-                *self._format_ratio_bar(task_ratio),
-                pt.SeqIndex.BOLD_DIM_OFF.assemble(),
-                self._field_sep_nobg,
-                *self._format_labels(),
-            ),
-            renderer=self._renderer,
-        )
-        self._echo(result, persist=True)
 
     def _echo(self, result: str, persist=False):
         if self.is_format_allowed:
-            result += self.CSI_EL0 + self.SGR_RESET
-        else:
-            result += "\n"
+            # firstly set cursor X to 0, then clear that line,
+            # then echo the result, then clear that line again
+            result = self.OUT_START + result + self.CSI_EL0 + self.SGR_RESET
 
         if self._output_buffer.getvalue():
-            self._last_persist_ts = time.time()
-            self._output_buffer.write(self.OUT_START + result + self.OUT_END)
+            # something already waiting in buffer, no need to persist progress:
+            self._output_buffer.write(result)
             self._io.write(self._output_buffer.popvalue().rstrip())
+            self._update_last_persist_ts()
         else:
-            if persist:
-                self._last_persist_ts = time.time()
-            if self.is_format_allowed:
-                result = self.OUT_START + result + self.OUT_END
             self._io.write(result)
-            if persist:
-                self._io.write("\n")
+
+        if persist:
+            self._io.write("\n")
+            self._update_last_persist_ts()
 
         self._io.flush()
 
@@ -215,14 +201,6 @@ class ProgressBar:
             self._echo("", persist=True)
             self._output_buffer.close()
             self._output_buffer = None
-
-    @property
-    def _field_sep(self) -> str:
-        return f"{self._styles.DEFAULT.bg.to_sgr(pt.ColorTarget.BG)}{self.FIELD_SEP}"
-
-    @property
-    def _field_sep_nobg(self) -> str:
-        return self.FIELD_SEP
 
     def _get_max_step_num(self) -> int:
         return self._steps_amount
@@ -239,14 +217,8 @@ class ProgressBar:
         return (self._step_num - 1) / self._get_max_step_num()
 
     def _compute_max_label_len(self):
-        now = time.time()
-        if (
-            self._last_term_width_query_ts
-            and (now - self._last_term_width_query_ts) < self.TERM_WIDTH_QUERY_INTERVAL_SEC
-        ):
+        if not self._should_query_term_width():
             return
-
-        self._last_term_width_query_ts = now
 
         field_seps_len = 4 * len(self.FIELD_SEP)
         icon_len = len(self.ICON)
@@ -256,9 +228,10 @@ class ProgressBar:
         self._max_label_len = pt.get_terminal_width() - (
             field_seps_len + icon_len + task_bar_len + task_state_len + self.LABEL_PAD
         )
+        print("self._max_label_len", self._max_label_len)
 
     def _ensure_next_frame(self):
-        now = time.time()
+        now = time.monotonic_ns()
         if not self._next_frame_ts:
             self._next_frame_ts = now
 
@@ -269,16 +242,36 @@ class ProgressBar:
             raise _FrameAlreadyRendered
 
     def _should_persist(self) -> bool:
-        return time.time() - self._last_persist_ts >= self.PERSIST_MIN_INTERVAL_SEC
+        if self._last_persist_ts is None:
+            return True  # first render
+        from_last_persist = (time.monotonic_ns() - self._last_persist_ts) / 1e9
+        return from_last_persist >= self.PERSIST_MIN_INTERVAL_SEC
 
-    def _format_ratio_bar(self, ratio: float) -> typing.Iterable[str | pt.Fragment]:
+    def _update_last_persist_ts(self):
+        self._last_persist_ts = time.monotonic_ns()
+
+    def _should_query_term_width(self) -> bool:
+        now = time.monotonic_ns()
+        if self._last_term_width_query_ts:
+            if now - self._last_term_width_query_ts < self.TERM_WIDTH_QUERY_INTERVAL_SEC:
+                return False
+
+        self._last_term_width_query_ts = now
+        return True
+
+    def _format_field_sep(self, raw=False) -> str:
+        if not self.is_format_allowed or raw:
+            return self.FIELD_SEP
+        return f"{self._styles.DEFAULT.bg.to_sgr(pt.ColorTarget.BG)}{self.FIELD_SEP}"
+
+    def _format_ratio_bar(self, ratio: float, raw=False) -> typing.Iterable[str | pt.Fragment]:
         filled_length = math.floor(ratio * self.BAR_WIDTH)
         ratio_label = list(f"{100*ratio:>3.0f}%")
         ratio_label_len = 4  # "100%"
         ratio_label_left_pos = (self.BAR_WIDTH - ratio_label_len) // 2
         ratio_label_perc_pos = ratio_label_left_pos + 3
 
-        if not self.is_format_allowed:
+        if not self.is_format_allowed or raw:
             bar_chars = filled_length * FULL_BLOCK
             bar_chars += get_partial_hblock(ratio - filled_length * self.BAR_WIDTH)
             yield self.BORDER_LEFT_CHAR
@@ -320,7 +313,9 @@ class ProgressBar:
         yield pt.Fragment(self.BORDER_RIGHT_CHAR, self._styles.BAR_BORDER)
         yield pt.SeqIndex.BOLD_DIM_OFF.assemble()
 
-    def _format_icon(self) -> pt.Fragment:
+    def _format_icon(self, raw=False) -> pt.Fragment | str:
+        if not self.is_format_allowed or raw:
+            return " "
         icon = (self.ICON, " ")[self._icon_frame % 2]
         return pt.Fragment(icon, self._styles.ICON)
 
@@ -332,7 +327,7 @@ class ProgressBar:
         yield pt.Fragment(self.NUM_DELIM, self._styles.TASK_DELIM)
         yield pt.Fragment(task_num_max, self._styles.TASK_NUM_MAX)
 
-    def _format_labels(self) -> typing.Iterable[pt.Fragment]:
+    def _format_labels(self, raw=False) -> typing.Iterable[pt.Fragment]:
         task_label = self._task_label
         step_label = self._step_label
         step_num = ""
@@ -345,7 +340,7 @@ class ProgressBar:
             self._max_label_len - self.LABEL_PAD * 2 - len(task_label) - len(step_num),
             "<",
         )
-        if not self.is_format_allowed:
+        if not self.is_format_allowed or raw:
             yield from [task_label, pt.pad(self.LABEL_PAD), step_num, label_right_text]
             return
         yield pt.Fragment(f"{task_label}{pt.pad(self.LABEL_PAD)}")
