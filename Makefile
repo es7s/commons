@@ -34,7 +34,7 @@ show-version: ## Show current package version
 	@hatch version | sed -Ee "s/.+/Current: ${CYAN}&${RESET}/"
 
 tag-version: ## Tag current git branch HEAD with the current version
-	@git tag $(shell hatch version | cut -f1,2  -d\.) && git log -1
+	@git tag $(shell hatch version | cut -f1-3  -d\.) && git log -1
 
 _set_next_version = (hatch version $1 | tr -d '\n' | sed -zEe "s/(Old:\s*)(\S+)(New:\s*)(\S+)/Version updated:\n${CYAN} \2${RESET} -> ${YELLOW}\4${RESET}/")
 _set_current_date = (sed ${VERSION_FILE_PATH} -i -Ee 's/^(__updated__).+/\1 = "${NOW}"/w/dev/stdout' | cut -f2 -d'"')
@@ -74,7 +74,7 @@ demolish-build:  ## Delete build output folders  <hatch>
 
 build:  ## Build a package   <hatch>
 build: demolish-build
-	hatch build
+	hatch -e build build
 
 publish:  ## Upload last build    <hatch>
-	hatch publish
+	hatch -e build publish
