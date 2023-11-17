@@ -60,21 +60,20 @@ next-version-major: ## Increase version by 1
 _freeze = (	echo "${BSEP}\e[34mFreezing \e[1;94m$1\e[22;34m:\e[m\n${BSEP}"; \
 			hatch -e $1 run pip freeze -q --exclude-editable | \
 				sed --unbuffered -E -e '/^(Checking|Syncing|Creating|Installing)/d' | \
-				fgrep -e holms -v | \
-				tee requirements-$1.txt | \
+				tee requirements.txt | \
 				sed --unbuffered -E -e 's/^([a-zA-Z0-9_-]+)/\x1b[32m\1\x1b[m/' \
 									-e 's/([0-9.]+|@[a-zA-Z0-9_-]+)$$/\x1b[33m\1\x1b[m/'; \
 			echo)
 
-freeze:  ## Update requirements-*.txt   <hatch>
-	@$(call _freeze,build)
+freeze:  ## Update requirements.txt   <hatch>
+	@$(call _freeze,default)
 
 demolish-build:  ## Delete build output folders  <hatch>
 	hatch clean
 
 build:  ## Build a package   <hatch>
 build: demolish-build
-	hatch -e build build
+	hatch build
 
 publish:  ## Upload last build    <hatch>
-	hatch -e build publish
+	hatch publish

@@ -3,7 +3,7 @@
 #  (c) 2023 A. Shavykin <0.delameter@gmail.com>
 # ------------------------------------------------------------------------------
 import pytermor as pt
-import typing as t
+
 
 # https://wakatime.com/colors/languages
 
@@ -584,25 +584,21 @@ class PLangColor(pt.RealColor, pt.RenderColor, pt.ResolvableColor["PLangColor"])
     }
     # fmt: on
 
-    def __init__(
-        self,
-        value: pt.IColorValue | int,
-        name: str = None,
-        *,
-        register: bool = False,
-        aliases: t.List[str] = None,
-        variation_map: t.Dict[int, str] = None,
-    ):
+    def __init__(self, value: pt.IColorValue | int, name: str = None):
         pt.RealColor.__init__(self, value)
-        pt.ResolvableColor.__init__(self, name, register, None, aliases, variation_map)
+        pt.ResolvableColor.__init__(self, name, approx=True, register=True)
 
     @classmethod
     def get_longest_name(cls) -> int:
         return max(map(len, cls.MAP.keys()))
 
     to_sgr = pt.ColorRGB.to_sgr
+    to_tmux = pt.ColorRGB.to_tmux
+
+    def repr_attrs(self, verbose: bool = True) -> str:
+        return f'{self.format_value("#")}({self.name})'
 
     @classmethod
     def _load(cls):
         for name, value in cls.MAP.items():
-            PLangColor(value, name, register=True)
+            PLangColor(value, name.lower())
