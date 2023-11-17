@@ -601,4 +601,4 @@ class PLangColor(pt.RealColor, pt.RenderColor, pt.ResolvableColor["PLangColor"])
     @classmethod
     def _load(cls):
         for name, value in cls.MAP.items():
-            PLangColor(value, name.lower())
+            PLangColor(value, name)
