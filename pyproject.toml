@@ -49,6 +49,9 @@ include = [
 path = "es7s_commons/_version.py"
 
 
+[tool.hatch.envs.build]
+detached = true
+
 # ---------------------------------------------------------
 
 [tool.black]
