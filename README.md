@@ -17,6 +17,26 @@ es7s system shared code
 pip install es7s-commons
 ```
 
+## Contents
+
+@TODO
+
+## Logging
+
+### Max verbosity
+
+```python
+import logging
+logging.getLogger('es7s_commons').setLevel(logging.DEBUG)
+```
+
+### Silence
+
+```python
+import logging
+logging.getLogger('es7s_commons').setLevel(logging.CRITICAL)
+```
+
 ## Changelog
 
 [CHANGES.rst](CHANGES.rst)

@@ -8,30 +8,13 @@ import io
 import os
 import typing as t
 from collections import deque
-from functools import partial
-from logging import getLogger
 from math import ceil
 from pathlib import Path
 
 import pytermor as pt
-from pytermor import filtern, FT
+from pytermor import FT
 
-
-def joincoal(*arg: any, sep="") -> str:
-    return sep.join(map(str, filtern(arg)))
-
-
-isempty = lambda v: bool(v) and len(str(v).strip())
-
-
-filtere = partial(filter, isempty)
-""" Shortcut for filtering out falsy AND empty values from sequences """
-
-
-def filterev(mapping: dict) -> dict:
-    """Shortcut for filtering out falsy AND empty values from mappings"""
-    return dict(filter(lambda kv: isempty(kv[1]), mapping.items()))
-
+from .common import logger
 
 class DisposableComposite(pt.Composite):
     pass
@@ -165,7 +148,7 @@ class CompositeCompressor(pt.Composite):
             break  # от греха
 
     def _debug_compress_level(self, level: str):
-        getLogger(__package__).debug(f"Level {level} compression applied: length {len(self)}")
+        logger.debug(f"Level {level} compression applied: length {len(self)}")
 
     def _purge(self, disposables: list[_DC], req_delta: int, max_purge: int):
         if req_delta - max_purge > 0:

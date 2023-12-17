@@ -4,15 +4,36 @@
 # ------------------------------------------------------------------------------
 import sys
 import typing as t
-from logging import getLogger
+from contextlib import contextmanager
 
 import pytermor as pt
+from .common import logger
 
 
 class InputMode(str, pt.ExtendedEnum):  # @TODO str enums will be available in python 3.11
-    DEFAULT: str = 'default'
-    DISABLED: str = 'disabled'
-    DISCRETE: str = 'discrete'
+    DEFAULT: str = "default"
+    DISABLED: str = "disabled"
+    DISCRETE: str = "discrete"
+
+
+@contextmanager
+def terminal_state(
+    alt_buffer: bool = None,
+    no_cursor: bool = None,
+    input_mode: InputMode = None,
+):
+    tstate = TerminalState()
+
+    if alt_buffer:
+        tstate.enable_alt_screen_buffer()
+    if no_cursor:
+        tstate.hide_cursor()
+    if input_mode:
+        tstate.setup_input(input_mode)
+    try:
+        yield tstate
+    finally:
+        tstate.restore_state()
 
 
 class TerminalState:
@@ -30,7 +51,7 @@ class TerminalState:
     def disable_alt_screen_buffer(self):
         self._remove_restore_callback(self.disable_alt_screen_buffer)
         self._send_sequence(pt.make_disable_alt_screen_buffer)
-        getLogger(__package__).debug("TSC: DISABLED ALT SCREEN BUFFER: stderr logging should work again")
+        logger.debug("TSC: DISABLED ALT SCREEN BUFFER: stderr logging should work again")
 
     def hide_cursor(self):
         self._add_restore_callback(self.show_cursor)
@@ -52,59 +73,61 @@ class TerminalState:
                 raise NotImplementedError(f"Unknown input mode: {input_mode}")
 
     def disable_input(self):
-        getLogger(__package__).debug(f"TSC: Putting tty into cbreak mode: {sys.stdin}")
+        logger.debug(f"TSC: Putting tty into cbreak mode: {sys.stdin}")
         if not self._is_a_tty():
             return
         if self._terminal_orig_settings:
-            getLogger(__package__).warning(f"TSC: Altering tty attributes skipped: already altered")
+            logger.warning(f"TSC: Altering tty attributes skipped: already altered")
             return
 
         import tty
         import termios
 
-        self._terminal_orig_settings = termios.tcgetattr(sys.stdin)
-        self._add_restore_callback(self.restore_input)
         try:
+            self._terminal_orig_settings = termios.tcgetattr(sys.stdin)
             tty.setcbreak(sys.stdin)
+            self._add_restore_callback(self.restore_input)
         except (termios.error, TypeError) as e:
-            getLogger(__package__).error("Saving tty state failed", exc_info=e)
+            logger.error("Saving tty state failed", exc_info=e)
 
     def discrete_input(self):
         """
         Use with: sys.stdin.read(1)
         Origin: readchar/_posix_read.py
         """
-        getLogger(__package__).debug(f"TSC: Enabling tty discrete input: {sys.stdin}")
+        logger.debug(f"TSC: Enabling tty discrete input: {sys.stdin}")
         if not self._is_a_tty():
             return
         if self._terminal_orig_settings:
-            getLogger(__package__).warning(f"TSC: Altering tty attributes skipped: already altered")
+            logger.warning(f"TSC: Altering tty attributes skipped: already altered")
             return
 
         import termios
 
-        fd = sys.stdin.fileno()
-        term = termios.tcgetattr(fd)
-        self._terminal_orig_settings = termios.tcgetattr(fd)
-        self._add_restore_callback(self.restore_input)
         try:
+            fd = sys.stdin.fileno()
+            term = termios.tcgetattr(fd)
             # originally:
             # term[3] &= ~(termios.ICANON | termios.ECHO)
             term[3] &= ~(termios.ICANON | termios.ECHO | termios.IGNBRK | termios.BRKINT)
             # we don't need to ignore Ctrl+C though, because we handle it on the top level in init_cli()
             termios.tcsetattr(fd, termios.TCSAFLUSH, term)
+
+            self._terminal_orig_settings = termios.tcgetattr(fd)
+            self._add_restore_callback(self.restore_input)
+
         except (termios.error, TypeError) as e:
-            getLogger(__package__).error("Saving tty state failed", exc_info=e)
+            logger.error("Saving tty state failed", exc_info=e)
 
     def restore_input(self):
         if not self._is_a_tty():
-            getLogger(__package__).warning(f"TSC: Restoring tty attributes skipped: not a tty")
+            logger.warning(f"TSC: Restoring tty attributes skipped: not a tty")
             return
         if not self._terminal_orig_settings:
-            getLogger(__package__).warning(f"TSC: Restoring tty attributes skipped: nothing to restore")
+            logger.warning(f"TSC: Restoring tty attributes skipped: nothing to restore")
             return
 
-        getLogger(__package__).debug(f"TSC: Restoring tty attributes: {self._terminal_orig_settings}")
+        logger.debug(f"TSC: Restoring tty attributes: {self._terminal_orig_settings}")
         self._remove_restore_callback(self.restore_input)
 
         import termios
@@ -112,7 +135,7 @@ class TerminalState:
         try:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self._terminal_orig_settings)
         except TypeError as e:
-            getLogger(__package__).error("Restoring tty state failed", exc_info=e)
+            logger.error("Restoring tty state failed", exc_info=e)
         finally:
             self._terminal_orig_settings = None
 
@@ -122,32 +145,32 @@ class TerminalState:
 
     def restore_state(self):
         while self._restore_callbacks:
-            getLogger(__package__).debug(f"TSC: Restoring state ({len(self._restore_callbacks)})")
+            logger.debug(f"TSC: Restoring state ({len(self._restore_callbacks)})")
             try:
                 self._restore_callbacks.pop()()
             except:  # noqa
                 pass
 
     def _add_restore_callback(self, fn: t.Callable[[], None]) -> None:
-        getLogger(__package__).debug(f"TSC: Registering callback: '{fn.__name__}'")
+        logger.debug(f"TSC: Registering callback: '{fn.__name__}'")
         self._restore_callbacks.append(fn)
 
     def _remove_restore_callback(self, fn: t.Callable[[], None]) -> None:
         if fn not in self._restore_callbacks:
             return
-        getLogger(__package__).debug(f"TSC: Unregistering callback: '{fn.__name__}'")
+        logger.debug(f"TSC: Unregistering callback: '{fn.__name__}'")
         self._restore_callbacks.remove(fn)
 
     def _send_sequence(self, fn: t.Callable[[], pt.ISequence]) -> None:
         if not self._is_a_tty():
-            getLogger(__package__).debug(f"TSC: Skipping control sequence: not a tty")
+            logger.debug(f"TSC: Skipping control sequence: not a tty")
             return
 
         sequence = fn()
-        getLogger(__package__).debug(f"TSC: Sending control sequence: '{fn.__name__}' -> {sequence!r}")
+        logger.debug(f"TSC: Sending control sequence: '{fn.__name__}' -> {sequence!r}")
 
         if sequence == pt.make_enable_alt_screen_buffer():
-            getLogger(__package__).debug(
+            logger.debug(
                 "TSC: ENABLED ALT SCREEN BUFFER: ALL STDERR LOG MESSAGES ARE NOW _IGNORED_ BY THE "
                 "TERMINAL (syslog should still work unless switched off explicitly)"
             )

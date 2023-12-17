@@ -11,7 +11,11 @@ from functools import reduce
 
 import math
 import typing as t
+from logging import getLogger
 from typing import final
+
+
+logger = getLogger(__package__)
 
 
 def Regex(

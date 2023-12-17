@@ -6,12 +6,12 @@ from __future__ import annotations
 
 import typing as t
 from functools import update_wrapper
-from logging import getLogger, DEBUG
+from logging import DEBUG
 from typing import cast, Optional, Union, overload
 
 import pytermor as pt
 
-from .common import nowf
+from .common import nowf, logger
 
 _F = t.TypeVar("_F", bound=t.Callable[..., t.Any])
 _MFT = t.TypeVar("_MFT", bound=t.Callable[[str, t.Any, ...], Optional[Union[str, t.Iterable[str]]]])
@@ -31,7 +31,6 @@ def measure(__origin: _F = None, *, fmter: _MFT = None, level=DEBUG) -> _F | t.C
 
     def decorator(origin: t.Callable[..., t.Any]):
         def wrapper(*args, **kwargs):
-            logger = getLogger(__package__)
             before_s = nowf()
             result = origin(*args, **kwargs)
             delta_s = nowf() - before_s
