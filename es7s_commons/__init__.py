@@ -5,6 +5,8 @@
 
 from ._version import __updated__ as PKG_UPDATED  # noqa lower-cased variable bla-bla-bla
 from ._version import __version__ as PKG_VERSION  # noqa
+from .column import TextStat as TextStat
+from .column import columns as columns
 from .common import FinalSingleton as FinalSingleton
 from .common import Regex as Regex
 from .common import autogen as autogen
@@ -45,6 +47,7 @@ from .spinner import SpinnerBrailleSquareCenter as SpinnerBrailleSquareCenter
 from .spinner import SpinnerBrailleSquareFill as SpinnerBrailleSquareFill
 from .structx import DoublyLinkedNode as DoublyLinkedNode
 from .structx import RingList as RingList
+from .strutil import URL_REGEX as URL_REGEX
 from .strutil import NamedGroupsRefilter as NamedGroupsRefilter
 from .strutil import RegexValRefilter as RegexValRefilter
 from .strutil import SUBSCRIPT_TRANS as SUBSCRIPT_TRANS
@@ -65,4 +68,6 @@ from .weather import WIND_DIRECTION as WIND_DIRECTION
 from .weather import WWO_CODE as WWO_CODE
 from .weather import WeatherIconSet as WeatherIconSet
 from .weather import get_wicon
+from .strutil import UCS_CYRILLIC as UCS_CYRILLIC
+from .strutil import UCS_CONTROL_CHARS as UCS_CONTROL_CHARS
 from .weather import justify_wicon

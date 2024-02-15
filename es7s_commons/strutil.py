@@ -5,21 +5,49 @@
 from __future__ import annotations
 
 import pytermor as pt
+from pytermor import PTT, FT
+
+from .common import Regex
+
+URL_REGEX = Regex(
+    R"""
+ (https?)(:/)
+ ([-/a-zA-Z0-9_%.]+)
+ ([-/a-zA-Z0-9_%])
+""",
+    verbose=True,
+)
+
+_chars_to_codes = lambda *s: {*map(ord, s)}
+
+UCS_CYRILLIC = _chars_to_codes(
+    *pt.char_range("а", "я"),
+    *pt.char_range("А", "Я"),
+    *("ё", "Ё"),
+)
+
+# fmt: off
+UCS_CONTROL_CHARS = pt.CONTROL_CHARS + [
+    0x85,   0x061C, 0x200E, 0x200F,
+    0x2028, 0x2029, 0x202A, 0x202B,
+    0x202C, 0x202D, 0x202E, 0x2066,
+    0x2067, 0x2068, 0x2069,
+]
+# fmt: on
 
 
 class NamedGroupsRefilter(pt.AbstractNamedGroupsRefilter):
-    def _get_renderer(self) -> pt.IRenderer:
-        from es7s.shared import get_stdout
-
-        return get_stdout().renderer
+    def __init__(self, pattern: PTT[str], group_st_map: dict[str, FT], renderer: pt.IRenderer):
+        super().__init__(pattern, group_st_map)
+        self._renderer = renderer
 
     def _render(self, v: pt.RT, st: pt.FT) -> str:
-        return self._get_renderer().render(v, st)
+        return self._renderer.render(v, st)
 
 
 class RegexValRefilter(NamedGroupsRefilter):
-    def __init__(self, pattern: pt.filter.PTT[str], val_st: pt.FT):
-        super().__init__(pattern, {"val": val_st})
+    def __init__(self, pattern: pt.filter.PTT[str], val_st: pt.FT, renderer: pt.IRenderer):
+        super().__init__(pattern, {"val": val_st}, renderer)
 
 
 class Transmap(dict[int, str]):

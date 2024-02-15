@@ -28,7 +28,7 @@ classifiers = [
     "Topic :: Text Processing :: Filters",
 ]
 dependencies = [
-    "pytermor>=2.109.0.dev0",
+    "pytermor>=2.117.0.dev0",
 ]
 
 [project.urls]

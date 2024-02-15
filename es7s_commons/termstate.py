@@ -7,6 +7,7 @@ import typing as t
 from contextlib import contextmanager
 
 import pytermor as pt
+
 from .common import logger
 
 
@@ -37,10 +38,12 @@ def terminal_state(
 
 
 class TerminalState:
-    def __init__(self, io: t.IO = sys.stdout):
-        self._io = io
+    def __init__(self, io: t.IO = None):
+        self._io = io or sys.stdout
         self._restore_callbacks: list[t.Callable[[], None]] = []
         self._terminal_orig_settings: list | None = None
+        self._debug = False
+        self._force_esq = None
 
     def enable_alt_screen_buffer(self):
         self._add_restore_callback(self.disable_alt_screen_buffer)
@@ -74,7 +77,7 @@ class TerminalState:
 
     def disable_input(self):
         logger.debug(f"TSC: Putting tty into cbreak mode: {sys.stdin}")
-        if not self._is_a_tty():
+        if not self._isatty():
             return
         if self._terminal_orig_settings:
             logger.warning(f"TSC: Altering tty attributes skipped: already altered")
@@ -96,7 +99,7 @@ class TerminalState:
         Origin: readchar/_posix_read.py
         """
         logger.debug(f"TSC: Enabling tty discrete input: {sys.stdin}")
-        if not self._is_a_tty():
+        if not self._isatty():
             return
         if self._terminal_orig_settings:
             logger.warning(f"TSC: Altering tty attributes skipped: already altered")
@@ -120,7 +123,7 @@ class TerminalState:
             logger.error("Saving tty state failed", exc_info=e)
 
     def restore_input(self):
-        if not self._is_a_tty():
+        if not self._isatty():
             logger.warning(f"TSC: Restoring tty attributes skipped: not a tty")
             return
         if not self._terminal_orig_settings:
@@ -143,6 +146,14 @@ class TerminalState:
         self._remove_restore_callback(self._restore_cursor_position)
         self._send_sequence(pt.make_restore_cursor_position)
 
+    def set_horiz_tabs(self, interval: int = None, shift: int = None):
+        self._add_restore_callback(self._reset_horiz_tabs)
+        self._send_sequence(lambda: pt.term.compose_terminal_tabs_reset(interval, shift, debug=self._debug))
+
+    def _reset_horiz_tabs(self):
+        self._remove_restore_callback(self._reset_horiz_tabs)
+        self._send_sequence(lambda: pt.term.compose_terminal_tabs_reset(8, debug=self._debug))
+
     def restore_state(self):
         while self._restore_callbacks:
             logger.debug(f"TSC: Restoring state ({len(self._restore_callbacks)})")
@@ -161,9 +172,9 @@ class TerminalState:
         logger.debug(f"TSC: Unregistering callback: '{fn.__name__}'")
         self._restore_callbacks.remove(fn)
 
-    def _send_sequence(self, fn: t.Callable[[], pt.ISequence]) -> None:
-        if not self._is_a_tty():
-            logger.debug(f"TSC: Skipping control sequence: not a tty")
+    def _send_sequence(self, fn: t.Callable[[], pt.ISequence|str]) -> None:
+        if not self._is_allowed_to_send_esq():
+            logger.debug(f"TSC: Skipping control sequence: "+("not a tty" if not self._isatty() else "forced"))
             return
 
         sequence = fn()
@@ -179,5 +190,10 @@ class TerminalState:
     def _echo(self, sequence: pt.ISequence):
         self._io.write(sequence.assemble())
 
-    def _is_a_tty(self):
+    def _is_allowed_to_send_esq(self) -> bool:
+        if self._force_esq is not None:
+            return self._force_esq
+        return self._isatty()
+
+    def _isatty(self):
         return self._io.isatty()
