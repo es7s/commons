@@ -24,13 +24,13 @@ class TextStat:
     max_row_len: int = 0
 
 def columns(
-    lines: list[pt.RT|None],
-    *,
-    gap: int | str | pt.RT = 1,
-    sectgap: int = 1,
-    sectsize: int = 0,
-    tabsize: int = 8,
-    rows_first=False,
+        lines: list[pt.RT|None],
+        *,
+        gap: int | str | pt.RT = 1,
+        sectgap: int = 1,
+        sectsize: int = 0,
+        tabsize: int = 8,
+        rows_first=False,
 ) -> tuple[pt.RT, TextStat]:
     """
     Input format:
@@ -70,13 +70,14 @@ def columns(
         return len(s)
 
     def __postprocess(ss: list[pt.RT], sep: str = "\n") -> pt.RT:
-        if all(isinstance(s, str) for s in ss):
-            return sep.join(ss)
-        cmp = pt.Composite()
+        cmp = ""
+        if not all(isinstance(s, str) for s in ss):
+            cmp = pt.Composite()
         linenum = 0
         for s in ss:
-            if sectsize and linenum % sectsize == 0 and linenum > 0:
-                cmp += sep * sectgap
+            if sectsize and sectgap:
+                if linenum % sectsize == 0 and linenum > 0:
+                    cmp += sep * sectgap
             linenum += 1
             cmp += s + sep
         return cmp
