@@ -16,6 +16,7 @@ from pytermor import FT
 
 from .common import logger
 
+
 class DisposableComposite(pt.Composite):
     pass
     # def render(self, *args) -> str:
@@ -187,7 +188,9 @@ class CompositeCompressor(pt.Composite):
             self._parts.pop()
 
 
-def format_attrs(*o: object, keep_classname=True, level=0, flat=False) -> str:
+def format_attrs(*o: object, keep_classname=True, level=0, flat=False, truncate: int = None) -> str:
+    kwargs = dict(keep_classname=keep_classname, flat=flat, truncate=truncate)
+
     def _to_str(a) -> str:
         if (s := str(a)).startswith(cn := a.__class__.__name__):
             if keep_classname:
@@ -203,13 +206,15 @@ def format_attrs(*o: object, keep_classname=True, level=0, flat=False) -> str:
     if len(o) == 1:
         o = o[0]
     if isinstance(o, str):
+        if truncate is not None:
+            return pt.cut(o, truncate)
         return o
     elif isinstance(o, t.Mapping):
-        return _wrap(" ".join(f"{_to_str(k)}={format_attrs(v, flat=flat)}" for k, v in o.items()))
+        return _wrap(" ".join(f"{_to_str(k)}={format_attrs(v, **kwargs)}" for k, v in o.items()))
     elif issubclass(type(o), io.IOBase):
         return f"{pt.get_qname(o)}['{getattr(o, 'name', '?')}', {getattr(o, 'mode', '?')}]"
     elif isinstance(o, t.Iterable):
-        return _wrap(" ".join(format_attrs(v, level=level + 1, flat=flat) for v in o))
+        return _wrap(" ".join(format_attrs(v, level=level + 1, **kwargs) for v in o))
     return _to_str(o)
 
 

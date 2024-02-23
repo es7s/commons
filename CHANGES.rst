@@ -45,3 +45,7 @@ Version list
 1.7.1 :date:`Feb 24`
 ---------------------
 🐞 FIX: applying section gap for all cases
+
+1.8.0 :date:`Feb 24`
+---------------------
+🌱 NEW: `format_attrs` parameter `truncate`
